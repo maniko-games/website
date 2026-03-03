@@ -8,10 +8,13 @@
 <body style="font-family: sans-serif; text-align: center; padding: 50px;">
 
     <div id="car-display">
-        <h2 id="car-name">Loading car...</h2>
-        <p id="car-type"></p>
-        <img id="car-photo" src="" alt="Hot Wheels Photo" style="max-width:300px; display:none;">
-    </div>
+    <h2 id="car-model">Loading car...</h2>
+    <p><strong>Case:</strong> <span id="car-case"></span></p>
+    <p><strong>Type:</strong> <span id="car-type"></span></p>
+    <p><strong>Favorite?</strong> <span id="car-like"></span></p>
+    
+    <img id="car-photo" src="" alt="Hot Wheels Photo" style="max-width:300px; display:none; border-radius: 10px; margin-top: 15px;">
+</div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -39,24 +42,29 @@
 
                 if (docSnap.exists()) {
                     const carData = docSnap.data();
-                    
-                    // These lines will now work because the IDs exist above
-                    document.getElementById("car-name").innerText = carData.name;
+    
+                    // 1. Display String/Text fields
+                    document.getElementById("car-model").innerText = carData.Model;
+                    document.getElementById("car-case").innerText = carData.Case || "N/A";
                     document.getElementById("car-type").innerText = carData.type || "Mainline";
 
-                    // Note: Ensure images/cars/noyN3JRLIxjd0xs5YgrS.jpg exists in Storage!
-                    const imageRef = ref(storage, `images/cars/${carId}.jpg`);
+                    // 2. Display Boolean fields (True/False)
+                    // We can use a "Ternary Operator" to show a heart if you like it!
+                    const likeStatus = carData["I like?"] === true ? "Yes ❤️" : "No ❌";
+                    document.getElementById("car-like").innerText = likeStatus;
+
+                    // 3. Handle your photo (using your existing logic)
+                    const imageRef = ref(storage, `${carId}.jpg`);
                     const url = await getDownloadURL(imageRef);
-                    
                     const imgElement = document.getElementById("car-photo");
                     imgElement.src = url;
                     imgElement.style.display = "inline-block";
                 } else {
-                    document.getElementById("car-name").innerText = "Car not found in Database";
+                    document.getElementById("car-model").innerText = "Car not found in Database";
                 }
             } catch (error) {
                 console.error("Error loading car:", error);
-                document.getElementById("car-name").innerText = "Error loading data: " + error.message;
+                document.getElementById("car-model").innerText = "Error loading data: " + error.message;
             }
         }
 
