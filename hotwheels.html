@@ -7,13 +7,17 @@
 </head>
 <body style="font-family: sans-serif; text-align: center; padding: 50px;">
 
-<script type="module">
-        // 1. Import the specific Firebase tools you need
+    <div id="car-display">
+        <h2 id="car-name">Loading car...</h2>
+        <p id="car-type"></p>
+        <img id="car-photo" src="" alt="Hot Wheels Photo" style="max-width:300px; display:none;">
+    </div>
+
+    <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
-        // 2. Your project's unique configuration
         const firebaseConfig = {
             apiKey: "AIzaSyAkdQrNE0jswL4xfAEM4uHtHyzPwn2o3bU",
             authDomain: "maniko-hotwheels.firebaseapp.com",
@@ -24,30 +28,26 @@
             measurementId: "G-V3WYKC0X1Q"
         };
 
-        // 3. Initialize the "Engines"
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const storage = getStorage(app);
 
-        // 4. The function that brings your car to life
         async function displayCar(carId) {
             try {
-                // Get the text data from Firestore
                 const docRef = doc(db, "mainline-cars", carId);
                 const docSnap = await getDoc(docRef);
 
                 if (docSnap.exists()) {
                     const carData = docSnap.data();
                     
-                    // Update the HTML text
+                    // These lines will now work because the IDs exist above
                     document.getElementById("car-name").innerText = carData.name;
                     document.getElementById("car-type").innerText = carData.type || "Mainline";
 
-                    // Use your ID = Filename logic to get the photo
+                    // Note: Ensure images/cars/noyN3JRLIxjd0xs5YgrS.jpg exists in Storage!
                     const imageRef = ref(storage, `images/cars/${carId}.jpg`);
                     const url = await getDownloadURL(imageRef);
                     
-                    // Update the HTML image
                     const imgElement = document.getElementById("car-photo");
                     imgElement.src = url;
                     imgElement.style.display = "inline-block";
@@ -56,11 +56,10 @@
                 }
             } catch (error) {
                 console.error("Error loading car:", error);
-                document.getElementById("car-name").innerText = "Error loading data";
+                document.getElementById("car-name").innerText = "Error loading data: " + error.message;
             }
         }
 
-        // 5. Run the test (Use your actual Document ID here)
         displayCar("noyN3JRLIxjd0xs5YgrS"); 
     </script>
 </body>
