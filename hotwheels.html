@@ -5,20 +5,18 @@
     <meta name="google-adsense-account" content="ca-pub-5489037558570680">
     <title>Maniko Hot Wheels Database</title>
 </head>
-<body style="font-family: sans-serif; text-align: center; padding: 50px;">
+<body style="font-family: sans-serif; text-align: center; padding: 20px; background-color: #f9f9f9;">
 
-    <div id="car-display">
-    <h2 id="car-model">Loading car...</h2>
-    <p><strong>Case:</strong> <span id="car-case"></span></p>
-    <p><strong>Type:</strong> <span id="car-type"></span></p>
-    <p><strong>Favorite?</strong> <span id="car-like"></span></p>
-    
-    <img id="car-photo" src="" alt="Hot Wheels Photo" style="max-width:300px; display:none; border-radius: 10px; margin-top: 15px;">
-</div>
+    <h1>My Hot Wheels Collection</h1>
+
+    <div id="cars-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 20px;">
+        <p id="loading-text">Loading collection...</p>
+    </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        // Notice we added 'collection' and 'getDocs'
+        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
         const firebaseConfig = {
@@ -35,40 +33,55 @@
         const db = getFirestore(app);
         const storage = getStorage(app);
 
-        async function displayCar(carId) {
+        async function displayAllCars() {
+            const grid = document.getElementById("cars-grid");
+            
             try {
-                const docRef = doc(db, "mainline-cars", carId);
-                const docSnap = await getDoc(docRef);
+                // 1. Fetch all documents from the 'mainline-cars' collection
+                const querySnapshot = await getDocs(collection(db, "mainline-cars"));
+                grid.innerHTML = ""; // Clear the loading text
 
-                if (docSnap.exists()) {
-                    const carData = docSnap.data();
-    
-                    // 1. Display String/Text fields
-                    document.getElementById("car-model").innerText = carData.Model;
-                    document.getElementById("car-case").innerText = carData.Case || "N/A";
-                    document.getElementById("car-type").innerText = carData.type || "Mainline";
+                // 2. Loop through every car in the database
+                querySnapshot.forEach(async (docSnapshot) => {
+                    const carData = docSnapshot.data();
+                    const carId = docSnapshot.id;
 
-                    // 2. Display Boolean fields (True/False)
-                    // We can use a "Ternary Operator" to show a heart if you like it!
-                    const likeStatus = carData["I like?"] === true ? "Yes ❤️" : "No ❌";
-                    document.getElementById("car-like").innerText = likeStatus;
+                    // 3. Create a card for this car
+                    const carCard = document.createElement("div");
+                    carCard.style = "background: white; border-radius: 12px; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center;";
 
-                    // 3. Handle your photo (using your existing logic)
-                    const imageRef = ref(storage, `${carId}.jpg`);
-                    const url = await getDownloadURL(imageRef);
-                    const imgElement = document.getElementById("car-photo");
-                    imgElement.src = url;
-                    imgElement.style.display = "inline-block";
-                } else {
-                    document.getElementById("car-model").innerText = "Car not found in Database";
-                }
+                    // 4. Get the photo using your ID.jpg logic
+                    let photoUrl = "";
+                    try {
+                        const imageRef = ref(storage, `${carId}.jpg`);
+                        photoUrl = await getDownloadURL(imageRef);
+                    } catch (err) {
+                        // Fallback if image is missing
+                        photoUrl = "https://via.placeholder.com/200?text=No+Photo";
+                    }
+
+                    // 5. Fill the card with data from your structure
+                    const isFavorite = carData["I like?"] === true ? "❤️" : "";
+                    const isSuper = carData["Super TH"] === true ? "⭐ SUPER" : "Mainline";
+
+                    carCard.innerHTML = `
+                        <img src="${photoUrl}" style="width: 100%; border-radius: 8px; margin-bottom: 10px;">
+                        <h3 style="margin: 5px 0;">${carData.Model} ${isFavorite}</h3>
+                        <p style="color: #666; margin: 5px 0;"><strong>Case:</strong> ${carData.Case || "N/A"}</p>
+                        <p style="font-size: 0.9em; font-weight: bold; color: #e67e22;">${isSuper}</p>
+                    `;
+
+                    grid.appendChild(carCard);
+                });
+
             } catch (error) {
-                console.error("Error loading car:", error);
-                document.getElementById("car-model").innerText = "Error loading data: " + error.message;
+                console.error("Error loading collection:", error);
+                grid.innerHTML = "<p>Error loading database: " + error.message + "</p>";
             }
         }
 
-        displayCar("noyN3JRLIxjd0xs5YgrS"); 
+        // Run the function
+        displayAllCars();
     </script>
 </body>
 </html>
