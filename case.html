@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Case View - Maniko Hot Wheels</title>
+</head>
+<body style="font-family: sans-serif; text-align: center; padding: 20px; background-color: #f9f9f9;">
+
+    <a href="hotwheels.html" style="text-decoration: none; color: #666;">← Back to Full Collection</a>
+    <h1 id="case-title">Loading Case...</h1>
+
+    <div id="cars-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 20px;"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAkdQrNE0jswL4xfAEM4uHtHyzPwn2o3bU",
+            authDomain: "maniko-hotwheels.firebaseapp.com",
+            projectId: "maniko-hotwheels",
+            storageBucket: "maniko-hotwheels.firebasestorage.app",
+            messagingSenderId: "534387805003",
+            appId: "1:534387805003:web:9b78747f3538b58194b6ce",
+            measurementId: "G-V3WYKC0X1Q"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const storage = getStorage(app);
+
+        // 1. Get the Case Name from the URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const caseName = urlParams.get('name');
+        document.getElementById("case-title").innerText = "Case: " + caseName;
+
+        async function loadCaseCars() {
+            const grid = document.getElementById("cars-grid");
+            try {
+                // 2. Query Firestore using 'where' to filter by Case
+                const carsRef = collection(db, "mainline-cars");
+                const q = query(carsRef, 
+                    where("Case", "==", caseName),
+                    orderBy("Super TH", "desc"),
+                    orderBy("TH", "desc"),
+                    orderBy("Model", "asc")
+                );
+
+                const querySnapshot = await getDocs(q);
+                grid.innerHTML = "";
+
+                for (const docSnapshot of querySnapshot.docs) {
+                    const carData = docSnapshot.data();
+                    const carId = docSnapshot.id;
+
+                    // (Same Card logic as your main page)
+                    let photoUrl = "";
+                    try {
+                        const imageRef = ref(storage, `${carId}.jpg`);
+                        photoUrl = await getDownloadURL(imageRef);
+                    } catch (e) { photoUrl = "https://via.placeholder.com/200?text=No+Photo"; }
+
+                    const carCard = document.createElement("div");
+                    carCard.style = "background: white; border-radius: 12px; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center;";
+                    
+                    // Logic for STH/TH/Mainline labels...
+                    let typeLabel = carData["Super TH"] ? "STH" : (carData["TH"] ? "TH" : "Mainline");
+                    let typeColor = carData["Super TH"] ? "#e67e22" : (carData["TH"] ? "#95a5a6" : "#666");
+
+                    carCard.innerHTML = `
+                        <div style="width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 8px; margin-bottom: 10px;">
+                            <img src="${photoUrl}" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                        </div>
+                        <h3>${carData.Model}</h3>
+                        <p style="font-weight: bold; color: ${typeColor};">${typeLabel}</p>
+                    `;
+                    grid.appendChild(carCard);
+                }
+            } catch (error) {
+                console.error(error);
+                // NOTE: This query also requires a composite index! 
+                // Check your browser console for the link.
+            }
+        }
+        loadCaseCars();
+    </script>
+</body>
+</html>
