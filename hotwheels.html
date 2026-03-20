@@ -16,8 +16,9 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         // Notice we added 'collection' and 'getDocs'
-        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        //import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+        import { getFirestore, collection, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAkdQrNE0jswL4xfAEM4uHtHyzPwn2o3bU",
@@ -36,47 +37,77 @@
         async function displayAllCars() {
             const grid = document.getElementById("cars-grid");
             
-            try {
-                // 1. Fetch all documents from the 'mainline-cars' collection
-                const querySnapshot = await getDocs(collection(db, "mainline-cars"));
-                grid.innerHTML = ""; // Clear the loading text
+            // 1. CLEAR THE GRID IMMEDIATELY 
+            // This prevents the "double list" issue on refresh
+            grid.innerHTML = "<p>Loading your collection...</p>";
 
-                // 2. Loop through every car in the database
-                querySnapshot.forEach(async (docSnapshot) => {
+            try {
+                const carsRef = collection(db, "mainline-cars");
+                
+                // 2. THE QUERY
+                // Ensure "Year" and "Case" exist in EVERY document or they won't show up!
+                const q = query(carsRef, 
+                    orderBy("Year", "desc"),
+                    orderBy("Case", "asc"),
+                    orderBy("Super TH", "desc"),
+                    orderBy("TH", "desc"),
+                    orderBy("Model", "asc")
+                );
+
+                const querySnapshot = await getDocs(q);
+                
+                // Clear the loading text right before we start adding cards
+                grid.innerHTML = ""; 
+
+                // 3. THE LOOP
+                // Using a regular 'for...of' loop is safer for 'async' operations
+                for (const docSnapshot of querySnapshot.docs) {
                     const carData = docSnapshot.data();
                     const carId = docSnapshot.id;
 
-                    // 3. Create a card for this car
-                    const carCard = document.createElement("div");
-                    carCard.style = "background: white; border-radius: 12px; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center;";
-
-                    // 4. Get the photo using your ID.jpg logic
+                    // Image logic
                     let photoUrl = "";
                     try {
                         const imageRef = ref(storage, `${carId}.jpg`);
                         photoUrl = await getDownloadURL(imageRef);
                     } catch (err) {
-                        // Fallback if image is missing
                         photoUrl = "https://via.placeholder.com/200?text=No+Photo";
                     }
 
-                    // 5. Fill the card with data from your structure
-                    const isFavorite = carData["I like?"] === true ? "❤️" : "";
-                    const isSuper = carData["Super TH"] === true ? "⭐ SUPER" : "Mainline";
+                    // Type Logic
+                    let typeLabel = "Mainline";
+                    let typeColor = "#666";
+                    let isBold = "normal";
 
+                    if (carData["Super TH"] === true) {
+                        typeLabel = "STH";
+                        typeColor = "#e67e22";
+                        isBold = "bold";
+                    } else if (carData["TH"] === true) {
+                        typeLabel = "TH";
+                        typeColor = "#95a5a6";
+                        isBold = "bold";
+                    }
+
+                    // Card Creation
+                    const carCard = document.createElement("div");
+                    carCard.style = "background: white; border-radius: 12px; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center;";
+                    
                     carCard.innerHTML = `
-                        <img src="${photoUrl}" style="width: 100%; border-radius: 8px; margin-bottom: 10px;">
-                        <h3 style="margin: 5px 0;">${carData.Model} ${isFavorite}</h3>
+                        <div style="width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 8px; margin-bottom: 10px;">
+                            <img src="${photoUrl}" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                        </div>
+                        <h3 style="margin: 5px 0;">${carData.Model} </h3>
                         <p style="color: #666; margin: 5px 0;"><strong>Case:</strong> ${carData.Case || "N/A"}</p>
-                        <p style="font-size: 0.9em; font-weight: bold; color: #e67e22;">${isSuper}</p>
+                        <p style="font-size: 0.9em; font-weight: ${isBold}; color: ${typeColor}; margin: 5px 0;">${typeLabel}</p>
                     `;
+                    //${carData["I like?"] ? "❤️" : ""}
 
                     grid.appendChild(carCard);
-                });
-
+                }
             } catch (error) {
-                console.error("Error loading collection:", error);
-                grid.innerHTML = "<p>Error loading database: " + error.message + "</p>";
+                console.error("Error:", error);
+                grid.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
             }
         }
 
