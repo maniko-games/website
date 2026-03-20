@@ -93,12 +93,16 @@
                     const carCard = document.createElement("div");
                     carCard.style = "background: white; border-radius: 12px; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center;";
                     
+                    // This creates a link like case.html?name=A - 2026
+                    const caseEncoded = encodeURIComponent(carData.Case);
+                    const caseLink = `<a href="case.html?name=${caseEncoded}" style="color: #2196F3; text-decoration: none;">${carData.Case || "N/A"}</a>`;
+                    
                     carCard.innerHTML = `
                         <div style="width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 8px; margin-bottom: 10px;">
                             <img src="${photoUrl}" style="max-width: 100%; max-height: 100%; object-fit: contain;">
                         </div>
                         <h3 style="margin: 5px 0;">${carData.Model} </h3>
-                        <p style="color: #666; margin: 5px 0;"><strong>Case:</strong> ${carData.Case || "N/A"}</p>
+                        <p style="color: #666; margin: 5px 0;"><strong>Case:</strong> ${caseLink}</p>
                         <p style="font-size: 0.9em; font-weight: ${isBold}; color: ${typeColor}; margin: 5px 0;">${typeLabel}</p>
                     `;
                     //${carData["I like?"] ? "❤️" : ""}
