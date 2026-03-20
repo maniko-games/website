@@ -38,33 +38,69 @@
         async function loadCaseCars() {
             const grid = document.getElementById("cars-grid");
             try {
-                // 2. Query Firestore using 'where' to filter by Case
                 const carsRef = collection(db, "mainline-cars");
-                const q = query(carsRef, 
+                grid.innerHTML = "<p>Loading cars for this case...</p>";
+
+                // 1. Create both queries
+                const qString = query(carsRef, 
                     where("Case", "==", caseName),
                     orderBy("Super TH", "desc"),
                     orderBy("TH", "desc"),
                     orderBy("Model", "asc")
                 );
 
-                const querySnapshot = await getDocs(q);
+                const qArray = query(carsRef, 
+                    where("Case", "array-contains", caseName),
+                    orderBy("Super TH", "desc"),
+                    orderBy("TH", "desc"),
+                    orderBy("Model", "asc")
+                );
+
+                // 2. Run both simultaneously for better speed
+                const [snapString, snapArray] = await Promise.all([
+                    getDocs(qString),
+                    getDocs(qArray)
+                ]);
+
+                // 3. Merge results and remove duplicates using a Map (Key = ID)
+                const allCarsMap = new Map();
+                
+                snapString.docs.forEach(doc => allCarsMap.set(doc.id, doc.data()));
+                snapArray.docs.forEach(doc => allCarsMap.set(doc.id, doc.data()));
+
                 grid.innerHTML = "";
 
-                for (const docSnapshot of querySnapshot.docs) {
-                    const carData = docSnapshot.data();
-                    const carId = docSnapshot.id;
+                if (allCarsMap.size === 0) {
+                    grid.innerHTML = "<p>No cars found for this case.</p>";
+                    return;
+                }
 
-                    // (Same Card logic as your main page)
+                // 4. Convert Map back to an array so we can sort the combined list
+                const combinedCars = Array.from(allCarsMap, ([id, data]) => ({ id, ...data }));
+
+                // 5. Re-sort the combined list (since merging breaks the Firestore order)
+                combinedCars.sort((a, b) => {
+                    // Sort by Super TH first (true comes before false)
+                    if (b["Super TH"] !== a["Super TH"]) return b["Super TH"] - a["Super TH"];
+                    if (b["TH"] !== a["TH"]) return b["TH"] - a["TH"]; // Added TH sort here
+                    // Then by Model Name
+                    return a.Model.localeCompare(b.Model);
+                });
+
+                for (const carData of combinedCars) {
+                    const carId = carData.id;
+
                     let photoUrl = "";
                     try {
                         const imageRef = ref(storage, `${carId}.jpg`);
                         photoUrl = await getDownloadURL(imageRef);
-                    } catch (e) { photoUrl = "https://via.placeholder.com/200?text=No+Photo"; }
+                    } catch (e) { 
+                        photoUrl = "https://via.placeholder.com/200?text=No+Photo"; 
+                    }
 
                     const carCard = document.createElement("div");
                     carCard.style = "background: white; border-radius: 12px; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center;";
                     
-                    // Logic for STH/TH/Mainline labels...
                     let typeLabel = carData["Super TH"] ? "STH" : (carData["TH"] ? "TH" : "Mainline");
                     let typeColor = carData["Super TH"] ? "#e67e22" : (carData["TH"] ? "#95a5a6" : "#666");
 
@@ -78,9 +114,8 @@
                     grid.appendChild(carCard);
                 }
             } catch (error) {
-                console.error(error);
-                // NOTE: This query also requires a composite index! 
-                // Check your browser console for the link.
+                console.error("Error loading case:", error);
+                grid.innerHTML = `<p style="color:red;">Error: ${error.message}. Check console for index link!</p>`;
             }
         }
         loadCaseCars();
