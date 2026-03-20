@@ -15,10 +15,8 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        // Notice we added 'collection' and 'getDocs'
-        //import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
-        import { getFirestore, collection, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, query, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAkdQrNE0jswL4xfAEM4uHtHyzPwn2o3bU",
@@ -36,36 +34,45 @@
 
         async function displayAllCars() {
             const grid = document.getElementById("cars-grid");
-            
-            // 1. CLEAR THE GRID IMMEDIATELY 
-            // This prevents the "double list" issue on refresh
             grid.innerHTML = "<p>Loading your collection...</p>";
 
             try {
                 const carsRef = collection(db, "mainline-cars");
                 
-                // 2. THE QUERY
-                // Ensure "Year" and "Case" exist in EVERY document or they won't show up!
-                const q = query(carsRef, 
-                    orderBy("Year", "desc"),
-                    orderBy("Case", "asc"),
-                    orderBy("Super TH", "desc"),
-                    orderBy("TH", "desc"),
-                    orderBy("Model", "asc")
-                );
-
+                // 1. Get raw data without orderBy (prevents index issues with arrays)
+                const q = query(carsRef);
                 const querySnapshot = await getDocs(q);
                 
-                // Clear the loading text right before we start adding cards
+                // 2. Convert Snapshot to a standard Array for sorting
+                let allCars = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                // 3. MANUAL SORTING LOGIC
+                allCars.sort((a, b) => {
+                    // Extract first case for comparison
+                    const caseA = Array.isArray(a.Case) ? a.Case[0] : (a.Case || "");
+                    const caseB = Array.isArray(b.Case) ? b.Case[0] : (b.Case || "");
+                    
+                    // Sort Case Descending (2026 before 2024)
+                    if (caseA !== caseB) {
+                        return caseB.localeCompare(caseA); 
+                    }
+
+                    // Sort STH first (True > False)
+                    if (b["Super TH"] !== a["Super TH"]) return b["Super TH"] - a["Super TH"];
+
+                    // Sort TH second
+                    if (b["TH"] !== a["TH"]) return b["TH"] - a["TH"];
+
+                    // Sort Model Alphabetically
+                    return a.Model.localeCompare(b.Model);
+                });
+
                 grid.innerHTML = ""; 
 
-                // 3. THE LOOP
-                // Using a regular 'for...of' loop is safer for 'async' operations
-                for (const docSnapshot of querySnapshot.docs) {
-                    const carData = docSnapshot.data();
-                    const carId = docSnapshot.id;
+                // 4. THE LOOP
+                for (const carData of allCars) {
+                    const carId = carData.id;
 
-                    // Image logic
                     let photoUrl = "";
                     try {
                         const imageRef = ref(storage, `${carId}.jpg`);
@@ -74,7 +81,6 @@
                         photoUrl = "https://via.placeholder.com/200?text=No+Photo";
                     }
 
-                    // Type Logic
                     let typeLabel = "Mainline";
                     let typeColor = "#666";
                     let isBold = "normal";
@@ -89,23 +95,23 @@
                         isBold = "bold";
                     }
 
-                    // Card Creation
                     const carCard = document.createElement("div");
                     carCard.style = "background: white; border-radius: 12px; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center;";
                     
-                    // This creates a link like case.html?name=A - 2026
-                    const caseEncoded = encodeURIComponent(carData.Case);
-                    const caseLink = `<a href="case.html?name=${caseEncoded}" style="color: #2196F3; text-decoration: none;">${carData.Case || "N/A"}</a>`;
+                    const cases = Array.isArray(carData.Case) ? carData.Case : [carData.Case];
+                    const caseLinks = cases.map(c => {
+                        const caseEncoded = encodeURIComponent(c);
+                        return `<a href="case.html?name=${caseEncoded}" style="color: #2196F3; text-decoration: none;">${c}</a>`;
+                    }).join(', ');
                     
                     carCard.innerHTML = `
                         <div style="width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 8px; margin-bottom: 10px;">
                             <img src="${photoUrl}" style="max-width: 100%; max-height: 100%; object-fit: contain;">
                         </div>
-                        <h3 style="margin: 5px 0;">${carData.Model} </h3>
-                        <p style="color: #666; margin: 5px 0;"><strong>Case:</strong> ${caseLink}</p>
+                        <h3 style="margin: 5px 0;">${carData.Model}</h3>
+                        <p style="color: #666; margin: 5px 0;"><strong>Case:</strong> ${caseLinks}</p>
                         <p style="font-size: 0.9em; font-weight: ${isBold}; color: ${typeColor}; margin: 5px 0;">${typeLabel}</p>
                     `;
-                    //${carData["I like?"] ? "❤️" : ""}
 
                     grid.appendChild(carCard);
                 }
@@ -115,7 +121,6 @@
             }
         }
 
-        // Run the function
         displayAllCars();
     </script>
 </body>
