@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Treasure Hunt View</title>
+</head>
+<body style="font-family: sans-serif; text-align: center; padding: 20px; background-color: #f9f9f9;">
+
+    <a href="hotwheels.html" style="text-decoration: none; color: #666;">← Back to Full Collection</a>
+    <h1 id="page-title">Loading Treasures...</h1>
+
+    <div id="cars-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 20px;"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAkdQrNE0jswL4xfAEM4uHtHyzPwn2o3bU",
+            authDomain: "maniko-hotwheels.firebaseapp.com",
+            projectId: "maniko-hotwheels",
+            storageBucket: "maniko-hotwheels.firebasestorage.app",
+            messagingSenderId: "534387805003",
+            appId: "1:534387805003:web:9b78747f3538b58194b6ce",
+            measurementId: "G-V3WYKC0X1Q"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const storage = getStorage(app);
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const type = urlParams.get('type'); // "TH" or "STH"
+        
+        const titleElement = document.getElementById("page-title");
+        titleElement.innerText = type === "STH" ? "🔥 Super Treasure Hunts" : "💎 Treasure Hunts";
+
+        async function loadTreasures() {
+            const grid = document.getElementById("cars-grid");
+            try {
+                const carsRef = collection(db, "mainline-cars");
+                
+                // Determine which field to filter by
+                const fieldToFilter = type === "STH" ? "Super TH" : "TH";
+                const q = query(carsRef, where(fieldToFilter, "==", true));
+
+                const querySnapshot = await getDocs(q);
+                let cars = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                // Manual sort by Year (Newest first)
+                cars.sort((a, b) => {
+                    const getYear = (c) => parseInt((Array.isArray(c.Case) ? c.Case[0] : c.Case).slice(-4)) || 0;
+                    return getYear(b) - getYear(a);
+                });
+
+                grid.innerHTML = "";
+
+                const cardPromises = cars.map(async (carData) => {
+                    const carId = carData.id;
+                    const ext = carData.ImageExt || "jpg";
+                    const carCard = document.createElement("div");
+                    carCard.style = "background: white; border-radius: 12px; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center;";
+                    
+                    carCard.innerHTML = `
+                        <div style="width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 8px; margin-bottom: 10px;">
+                            <img id="img-${carId}" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+                                 style="max-width: 100%; max-height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.3s ease;">
+                        </div>
+                        <h3>${carData.Model}</h3>
+                        <p style="color: #666; font-size: 0.9em;">Case: ${(Array.isArray(carData.Case) ? carData.Case : [carData.Case]).join(', ')}</p>
+                    `;
+                    grid.appendChild(carCard);
+
+                    try {
+                        const url = await getDownloadURL(ref(storage, `${carId}.${ext}`));
+                        const img = document.getElementById(`img-${carId}`);
+                        img.src = url;
+                        img.onload = () => img.style.opacity = "1";
+                    } catch (e) { console.warn(e); }
+                });
+
+                await Promise.all(cardPromises);
+
+            } catch (error) {
+                console.error(error);
+                grid.innerHTML = `<p style="color:red;">Error loading treasures.</p>`;
+            }
+        }
+        loadTreasures();
+    </script>
+</body>
+</html>
