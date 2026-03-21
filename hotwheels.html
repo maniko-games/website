@@ -7,7 +7,7 @@
 </head>
 <body style="font-family: sans-serif; text-align: center; padding: 20px; background-color: #f9f9f9;">
 
-    <h1>My Hot Wheels Collection</h1>
+    <h1>Hot Wheels Collection</h1>
 
     <div id="cars-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 20px;">
         <p id="loading-text">Loading collection...</p>
@@ -37,84 +37,62 @@
             grid.innerHTML = "<p>Loading your collection...</p>";
 
             try {
-                const carsRef = collection(db, "mainline-cars");
-                
-                // 1. Get raw data without orderBy (prevents index issues with arrays)
-                const q = query(carsRef);
-                const querySnapshot = await getDocs(q);
-                
-                // 2. Convert Snapshot to a standard Array for sorting
+                const querySnapshot = await getDocs(query(collection(db, "mainline-cars")));
                 let allCars = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-                // 3. MANUAL SORTING LOGIC
+                // --- Keep your existing Manual Sorting Logic here ---
                 allCars.sort((a, b) => {
-                    // Extract first case for comparison
-                    const caseA = Array.isArray(a.Case) ? a.Case[0] : (a.Case || "");
-                    const caseB = Array.isArray(b.Case) ? b.Case[0] : (b.Case || "");
-                    
-                    // Sort Case Descending (2026 before 2024)
-                    if (caseA !== caseB) {
-                        return caseB.localeCompare(caseA); 
-                    }
-
-                    // Sort STH first (True > False)
+                    const getFirstCase = (car) => Array.isArray(car.Case) ? car.Case[0] : (car.Case || "");
+                    const fullCaseA = getFirstCase(a); const fullCaseB = getFirstCase(b);
+                    const yearA = parseInt(fullCaseA.slice(-4)) || 0; const yearB = parseInt(fullCaseB.slice(-4)) || 0;
+                    if (yearA !== yearB) return yearB - yearA;
+                    if (fullCaseA !== fullCaseB) return fullCaseB.localeCompare(fullCaseA);
                     if (b["Super TH"] !== a["Super TH"]) return b["Super TH"] - a["Super TH"];
-
-                    // Sort TH second
                     if (b["TH"] !== a["TH"]) return b["TH"] - a["TH"];
-
-                    // Sort Model Alphabetically
                     return a.Model.localeCompare(b.Model);
                 });
 
                 grid.innerHTML = ""; 
 
-                // 4. THE LOOP
-                for (const carData of allCars) {
+                // Start all card processing at once
+                const cardPromises = allCars.map(async (carData) => {
                     const carId = carData.id;
-
-                    let photoUrl = "";
-                    try {
-                        const imageRef = ref(storage, `${carId}.jpg`);
-                        photoUrl = await getDownloadURL(imageRef);
-                    } catch (err) {
-                        photoUrl = "https://via.placeholder.com/200?text=No+Photo";
-                    }
-
-                    let typeLabel = "Mainline";
-                    let typeColor = "#666";
-                    let isBold = "normal";
-
-                    if (carData["Super TH"] === true) {
-                        typeLabel = "STH";
-                        typeColor = "#e67e22";
-                        isBold = "bold";
-                    } else if (carData["TH"] === true) {
-                        typeLabel = "TH";
-                        typeColor = "#95a5a6";
-                        isBold = "bold";
-                    }
-
                     const carCard = document.createElement("div");
                     carCard.style = "background: white; border-radius: 12px; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center;";
                     
-                    const cases = Array.isArray(carData.Case) ? carData.Case : [carData.Case];
-                    const caseLinks = cases.map(c => {
-                        const caseEncoded = encodeURIComponent(c);
-                        return `<a href="case.html?name=${caseEncoded}" style="color: #2196F3; text-decoration: none;">${c}</a>`;
-                    }).join(', ');
-                    
+                    // Build the card structure immediately with a placeholder
                     carCard.innerHTML = `
                         <div style="width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 8px; margin-bottom: 10px;">
-                            <img src="${photoUrl}" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                            <img id="img-${carId}" src="https://via.placeholder.com/200?text=..." 
+                                style="max-width: 100%; max-height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.3s ease;">
                         </div>
                         <h3 style="margin: 5px 0;">${carData.Model}</h3>
-                        <p style="color: #666; margin: 5px 0;"><strong>Case:</strong> ${caseLinks}</p>
-                        <p style="font-size: 0.9em; font-weight: ${isBold}; color: ${typeColor}; margin: 5px 0;">${typeLabel}</p>
+                        <p style="color: #666; margin: 5px 0;"><strong>Case:</strong> ${
+                            (Array.isArray(carData.Case) ? carData.Case : [carData.Case]).map(c => 
+                            `<a href="case.html?name=${encodeURIComponent(c)}" style="color: #2196F3; text-decoration: none;">${c}</a>`).join(', ')
+                        }</p>
+                        <p style="font-size: 0.9em; font-weight: ${carData["Super TH"] || carData["TH"] ? 'bold' : 'normal'}; 
+                        color: ${carData["Super TH"] ? '#e67e22' : (carData["TH"] ? '#95a5a6' : '#666')}; margin: 5px 0;">
+                        ${carData["Super TH"] ? 'STH' : (carData["TH"] ? 'TH' : 'Mainline')}
+                        </p>
                     `;
-
                     grid.appendChild(carCard);
-                }
+
+                    // Fetch image in the background
+                    const ext = carData.ImageExt || "jpg";
+                    try {
+                        const url = await getDownloadURL(ref(storage, `${carId}.${ext}`));
+                        const imgElement = document.getElementById(`img-${carId}`);
+                        imgElement.src = url;
+                        imgElement.onload = () => imgElement.style.opacity = "1"; // Fade in
+                    } catch (err) {
+                        console.warn(`Missing image for ${carId}`);
+                    }
+                });
+
+                // This runs all fetches in parallel
+                await Promise.all(cardPromises);
+
             } catch (error) {
                 console.error("Error:", error);
                 grid.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
