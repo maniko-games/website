@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Car Details - Maniko Hot Wheels</title>
+</head>
+
+<style>
+    /* The Full-Screen Overlay */
+    #lightbox {
+        display: none;
+        position: fixed;
+        z-index: 999;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background-color: rgba(0, 0, 0, 0.9);
+        justify-content: center;
+        align-items: center;
+        cursor: zoom-out;
+    }
+
+    #lightbox img {
+        max-width: 95%;
+        max-height: 95%;
+        object-fit: contain;
+        box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    }
+
+    /* Change cursor on the detail page image to show it's clickable */
+    #car-image {
+        cursor: zoom-in;
+        transition: transform 0.2s ease;
+    }
+    #car-image:hover {
+        transform: scale(1.02);
+    }
+</style>
+
+<body style="font-family: sans-serif; text-align: center; padding: 20px; background-color: #f9f9f9;">
+
+    <div style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center;">
+        <a href="#" onclick="window.history.back(); return false;" 
+        style="text-decoration: none; color: #2196F3; font-weight: bold;">
+        ← Back
+        </a>
+        <span style="color: #ccc;">|</span>
+        <a href="hotwheels.html" 
+        style="text-decoration: none; color: #2196F3; font-weight: bold;">
+        Home
+        </a>
+    </div>
+
+    <div id="details-container" style="max-width: 540px; margin: 0 auto; background: white; border-radius: 15px; padding: 30px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+        
+        <div id="loading">Loading details...</div>
+
+        <div id="car-content" style="display: none;">
+            <div id="car-image-frame" style="width: 100%; max-width: 500px; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 15px; margin: 0 auto 20px auto; padding: 20px; border: 1px solid #eee;">
+                <img id="car-image" src="" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+            </div>
+
+            <h1 id="car-model" style="margin: 10px 0; font-size: 2.5em;"></h1>
+            <p id="car-case" style="font-size: 1.2em; color: #666;"></p>
+            <div id="car-type" style="font-weight: bold; font-size: 1.5em; margin-top: 15px; padding: 10px; border-radius: 8px;"></div>
+        </div>
+    </div>
+    <div id="treasure-section-outside" style="max-width: 1200px; margin: 40px auto 0 auto;"></div>
+
+    <script type="module">
+        // 1. Added missing imports: collection, query, where, getDocs
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, doc, getDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAkdQrNE0jswL4xfAEM4uHtHyzPwn2o3bU",
+            authDomain: "maniko-hotwheels.firebaseapp.com",
+            projectId: "maniko-hotwheels",
+            storageBucket: "maniko-hotwheels.firebasestorage.app",
+            messagingSenderId: "534387805003",
+            appId: "1:534387805003:web:9b78747f3538b58194b6ce",
+            measurementId: "G-V3WYKC0X1Q"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const storage = getStorage(app);
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const carId = urlParams.get('id');
+
+        async function loadCarDetails() {
+            if (!carId) return;
+
+            try {
+                const docRef = doc(db, "mainline-cars", carId);
+                const docSnap = await getDoc(docRef);
+
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    
+                    // --- Basic Info Setup ---
+                    document.getElementById("car-model").innerText = data.Model;
+                    
+                    const cases = Array.isArray(data.Case) ? data.Case : [data.Case];
+                    const caseLinks = cases.map(c => {
+                        const caseEncoded = encodeURIComponent(c);
+                        return `<a href="case.html?name=${caseEncoded}" style="color: #2196F3; text-decoration: none; border-bottom: 1px dashed #2196F3;">${c}</a>`;
+                    }).join(', ');
+
+                    document.getElementById("car-case").innerHTML = "<strong>Case:</strong> " + caseLinks;
+                    
+                    const typeDiv = document.getElementById("car-type");
+                    if (data["Super TH"]) {
+                        typeDiv.innerText = "SUPER TREASURE HUNT 🔥";
+                        typeDiv.style.color = "#e67e22";
+                        typeDiv.style.backgroundColor = "#fff5e6";
+                    } else if (data["TH"]) {
+                        typeDiv.innerText = "TREASURE HUNT 💎";
+                        typeDiv.style.color = "#95a5a6";
+                        typeDiv.style.backgroundColor = "#f2f2f2";
+                    } else {
+                        typeDiv.innerText = "Mainline";
+                        typeDiv.style.color = "#666";
+                    }
+
+                    // --- Image Setup ---
+                    const ext = data.ImageExt || "jpg";
+                    const url = await getDownloadURL(ref(storage, `${carId}.${ext}`));
+                    const carImg = document.getElementById("car-image");
+                    carImg.src = url;
+
+                    const lightbox = document.getElementById("lightbox");
+                    const lightboxImg = document.getElementById("lightbox-img");
+                    carImg.onclick = () => {
+                        lightboxImg.src = carImg.src;
+                        lightbox.style.display = 'flex';
+                    };
+
+                    // --- Treasure Search Logic (Moved inside here) ---
+                    const treasureContainer = document.createElement("div");
+                    treasureContainer.innerHTML = `
+                    <div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+                        <h3 style="margin-top:30px; text-align: center;">Can be found with:</h3>
+                        <div id="treasures-found" style="width: 100%;"></div>
+                    </div>`;
+                    document.getElementById("treasure-section-outside").appendChild(treasureContainer);
+                    const treasuresGrid = document.getElementById("treasures-found");
+                    treasuresGrid.innerHTML = "";
+
+                    const carsRef = collection(db, "mainline-cars");
+                    const foundTreasures = new Map();
+
+                    for (const caseName of cases) {
+                        const qString = query(carsRef, where("Case", "==", caseName));
+                        const qArray = query(carsRef, where("Case", "array-contains", caseName));
+
+                        const [snapString, snapArray] = await Promise.all([getDocs(qString), getDocs(qArray)]);
+
+                        [...snapString.docs, ...snapArray.docs].forEach(doc => {
+                            const d = doc.data();
+                            // Add if it's a treasure and NOT the current car
+                            if ((d["Super TH"] || d["TH"]) && doc.id !== carId) {
+                                foundTreasures.set(doc.id, d);
+                            }
+                        });
+                    }
+
+                    // 4. Display the results
+                    if (foundTreasures.size === 0) {
+                        treasuresGrid.innerHTML = "<p style='color:#999;'>No other treasures in these cases.</p>";
+                    } else {
+                        // Change these lines in your script:
+                        treasuresGrid.style.display = "grid";
+
+                        // 1. Use 'auto-fit' instead of 'auto-fill'
+                        treasuresGrid.style.gridTemplateColumns = "repeat(auto-fit, minmax(200px, 250px))";
+
+                        // 2. Add a max-width and margin auto to the grid itself
+                        treasuresGrid.style.width = "100%";
+                        treasuresGrid.style.maxWidth = "100%";
+                        treasuresGrid.style.margin = "0 auto";
+
+                        // 3. Keep the justify-content
+                        treasuresGrid.style.justifyContent = "center";
+                        treasuresGrid.style.gap = "20px";
+                        treasuresGrid.style.padding = "20px 0";
+
+                        // A. Convert Map to an Array so we can sort it
+                        const treasureList = Array.from(foundTreasures, ([id, data]) => ({ id, ...data }));
+
+                        // B. Sort: STH (True) comes before TH (False)
+                        treasureList.sort((a, b) => {
+                            // If one is STH and the other isn't, STH stays on top
+                            if (b["Super TH"] !== a["Super TH"]) {
+                                return b["Super TH"] ? 1 : -1;
+                            }
+                            // If they are the same type, sort alphabetically by Model
+                            return a.Model.localeCompare(b.Model);
+                        });
+
+                        // C. Loop through the SORTED list
+                        treasureList.forEach(async (tData) => {
+                            const tId = tData.id;
+                            const tLabel = tData["Super TH"] ? "STH" : "TH";
+                            const tColor = tData["Super TH"] ? "#e67e22" : "#95a5a6";
+                            
+                            const tCard = document.createElement("a");
+                            tCard.href = `carinfo.html?id=${tId}`;
+                            
+                            // Consistent card styling with the home page
+                            tCard.style = "text-decoration: none; color: #333; background: white; border: 1px solid #eee; border-radius: 15px; padding: 10px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: transform 0.2s;";
+                            
+                            tCard.innerHTML = `
+                                <div style="width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 8px; margin-bottom: 12px;">
+                                    <img id="t-img-${tId}" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" 
+                                        style="max-width: 100%; max-height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.3s;">
+                                </div>
+                                
+                                <div style="margin: 5px 0; font-weight: bold; font-size: 1em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${tData.Model}</div>
+                                <p style="font-size: 0.9em; font-weight: bold; color: ${tColor}; margin: 2px 0;">${tLabel}</p>
+                            `;
+                            treasuresGrid.appendChild(tCard);
+
+                            // Fetch the high-res image
+                            try {
+                                const tExt = tData.ImageExt || "jpg";
+                                const tUrl = await getDownloadURL(ref(storage, `${tId}.${tExt}`));
+                                const tImg = document.getElementById(`t-img-${tId}`);
+                                if (tImg) {
+                                    tImg.src = tUrl;
+                                    tImg.onload = () => tImg.style.opacity = "1";
+                                }
+                            } catch (e) {
+                                console.warn("Could not load treasure image", tId);
+                            }
+                        });
+                    }
+
+                    // Show content
+                    document.getElementById("loading").style.display = "none";
+                    document.getElementById("car-content").style.display = "block";
+
+                } else {
+                    document.getElementById("loading").innerText = "Car not found!";
+                }
+            } catch (e) {
+                console.error(e);
+                document.getElementById("loading").innerText = "Error loading details.";
+            }
+        }
+
+        loadCarDetails();
+    </script>
+
+    <div id="lightbox" onclick="this.style.display='none'">
+        <img id="lightbox-img" src="">
+    </div>
+</body>
+</html>
