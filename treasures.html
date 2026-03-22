@@ -137,10 +137,32 @@
                 const querySnapshot = await getDocs(q);
                 let cars = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-                // Manual sort by Year (Newest first)
+                // Manual sort: Year DESC (2026 -> 2024), then Case Letter DESC (Q -> A)
                 cars.sort((a, b) => {
-                    const getYear = (c) => parseInt((Array.isArray(c.Case) ? c.Case[0] : c.Case).slice(-4)) || 0;
-                    return getYear(b) - getYear(a);
+                    const getSortData = (car) => {
+                        const caseStr = Array.isArray(car.Case) ? car.Case[0] : car.Case;
+                        // Year: Get the last 4 digits
+                        const year = parseInt(caseStr.match(/\d{4}$/)) || 0;
+                        // Letter: Get the very first character (A, B, C, etc.)
+                        const letter = caseStr.trim().charAt(0).toUpperCase();
+                        return { year, letter };
+                    };
+
+                    const dataA = getSortData(a);
+                    const dataB = getSortData(b);
+
+                    // 1. Sort by Year (Newest first)
+                    if (dataB.year !== dataA.year) {
+                        return dataB.year - dataA.year;
+                    }
+
+                    // 2. Sort by Case Letter (Q -> A)
+                    // If B is 'D' and A is 'A', this returns a positive number, putting B first.
+                    if (dataB.letter > dataA.letter) return 1;
+                    if (dataB.letter < dataA.letter) return -1;
+                    
+                    // 3. Optional: alphabetical by Model if Year and Case are same
+                    return a.Model.localeCompare(b.Model);
                 });
 
                 grid.innerHTML = "";
