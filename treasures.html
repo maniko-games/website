@@ -19,7 +19,7 @@
         /* 1. Mobile Phone: Force 3 columns */
         #cars-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr); /* Forces exactly 3 columns */
+            grid-template-columns: repeat(2, 1fr); /* Forces exactly 3 columns */
             gap: 8px; /* Smaller gap for small screens */
             padding: 5px;
             min-height: 800px;
@@ -29,7 +29,7 @@
         /* 2. iPad / Tablets: Target 4 columns (Width > 600px) */
         @media (min-width: 600px) {
             #cars-grid {
-                grid-template-columns: repeat(4, 1fr); /* Forces exactly 4 columns */
+                grid-template-columns: repeat(3, 1fr); /* Forces exactly 4 columns */
                 gap: 15px;
                 padding: 15px;
             }
@@ -41,7 +41,6 @@
                 /* On big screens, let it auto-fill with a nice 220px size */
                 grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
                 gap: 20px;
-                max-width: 1200px;
                 margin: 0 auto;
             }
         }
