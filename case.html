@@ -2,13 +2,11 @@
 <html lang="en">
 <head>
     <link rel="preconnect" href="https://firebasestorage.googleapis.com">
-    <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-V3WYKC0X1Q"></script>
     <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
-
     gtag('config', 'G-V3WYKC0X1Q');
     </script>
 
@@ -19,8 +17,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 
-<body style="font-family: sans-serif; text-align: center; padding: 20px; background-color: #f9f9f9;">
-
+<body>
     <div style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center;">
         <a href="#" onclick="window.history.back(); return false;" 
         style="text-decoration: none; color: #2196F3; font-weight: bold;">
@@ -35,7 +32,7 @@
 
     <h1 id="case-title">Loading Case...</h1>
 
-    <div id="cars-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; padding: 10px; justify-content: center; min-height: 500px; transition: opacity 0.5s ease;"></div>
+    <div id="cars-grid"></div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -56,43 +53,43 @@
         const db = getFirestore(app);
         const storage = getStorage(app);
 
-        // 1. Get the Case Name from the URL
         const urlParams = new URLSearchParams(window.location.search);
         const caseName = urlParams.get('name');
         const cleanCase = caseName ? caseName : "Hot Wheels";
         document.title = `${cleanCase} List - Maniko Hot Wheels Database`;
-        let metaDesc = document.querySelector('meta[name="description"]');
-        if (!metaDesc) {
-            metaDesc = document.createElement('meta');
-            metaDesc.name = "description";
-            document.head.appendChild(metaDesc);
-        }
-        metaDesc.content = `Full list of cars in ${cleanCase}. Check for Super Treasure Hunts, Treasure Hunts, and Mainline models with high-res photos.`;
 
-        document.getElementById("case-title").innerText = "Case: " + caseName;
+        document.getElementById("case-title").innerText = "Case: " + cleanCase;
+
+        // --- THE SHRINKER FUNCTION ---
+        function adjustFontSizes() {
+            const titles = document.querySelectorAll('#cars-grid h3');
+            titles.forEach(title => {
+                let fontSize = 1.0; 
+                // Decrease font size until it fits in the 2-line box
+                while (title.scrollHeight > title.offsetHeight && fontSize > 0.5) {
+                    fontSize -= 0.03; // Smaller steps for smoother results
+                    title.style.fontSize = fontSize + 'em';
+                }
+            });
+        }
 
         async function loadCaseCars() {
             const grid = document.getElementById("cars-grid");
-            gtag('event', 'view_case', {
-                'case_name': caseName
-            });
             try {
                 const carsRef = collection(db, "mainline-cars");
-                grid.innerHTML = "<p>Loading cars for this case...</p>";
+                grid.innerHTML = "<p>Loading cars...</p>";
 
-                // 1. Run both Firestore queries in parallel
                 const [snapString, snapArray] = await Promise.all([
                     getDocs(query(carsRef, where("Case", "==", caseName), orderBy("Super TH", "desc"), orderBy("TH", "desc"), orderBy("Model", "asc"))),
                     getDocs(query(carsRef, where("Case", "array-contains", caseName), orderBy("Super TH", "desc"), orderBy("TH", "desc"), orderBy("Model", "asc")))
                 ]);
 
-                // 2. Merge and sort
                 const allCarsMap = new Map();
                 snapString.docs.forEach(doc => allCarsMap.set(doc.id, doc.data()));
                 snapArray.docs.forEach(doc => allCarsMap.set(doc.id, doc.data()));
 
                 if (allCarsMap.size === 0) {
-                    grid.innerHTML = "<p>No cars found for this case.</p>";
+                    grid.innerHTML = "<p>No cars found.</p>";
                     return;
                 }
 
@@ -103,60 +100,47 @@
                     return a.Model.localeCompare(b.Model);
                 });
 
-                grid.innerHTML = ""; // Clear loader
+                grid.innerHTML = ""; 
 
-                // 3. Parallel Image Loading Loop
                 const cardPromises = combinedCars.map(async (carData) => {
                     const carId = carData.id;
                     const ext = carData.ImageExt || "jpg"; 
-                    
-                    // CHANGE 1: Create an 'a' tag instead of a 'div'
                     const carCard = document.createElement("a");
-                    carCard.href = `carinfo.html?id=${carId}`; // Link to the details page
+                    carCard.href = `carinfo.html?id=${carId}`;
                     
-                    // CHANGE 2: Add 'text-decoration: none' and 'color: inherit' to keep look consistent
-                    carCard.style = "background: white; border-radius: 12px; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; text-decoration: none; color: #333; transition: transform 0.2s;";
-                    
-                    // Add a hover effect so the user knows it's clickable
-                    carCard.onmouseover = () => carCard.style.transform = "scale(1.02)";
-                    carCard.onmouseout = () => carCard.style.transform = "scale(1)";
-
                     let typeLabel = carData["Super TH"] ? "STH" : (carData["TH"] ? "TH" : "Mainline");
                     let typeColor = carData["Super TH"] ? "#e67e22" : (carData["TH"] ? "#95a5a6" : "#555");
 
                     carCard.innerHTML = `
                         <div style="width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 8px; margin-bottom: 10px;">
-                            <img id="img-${carId}" 
-                                src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
-                                alt="Hot Wheels ${carData.Model}"
-                                loading="lazy">
+                            <img id="img-${carId}" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" loading="lazy" style="width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.3s ease;">
                         </div>
                         <h3>${carData.Model}</h3>
-                        <p style="font-weight: bold; color: ${typeColor}; margin: 5px 0;">${typeLabel}</p>
+                        <p style="font-weight: bold; color: ${typeColor};">${typeLabel}</p>
                     `;
                     grid.appendChild(carCard);
 
-                    // Background Image Fetch
                     try {
                         const url = await getDownloadURL(ref(storage, `${carId}.${ext}`));
-                        const imgElement = document.getElementById(`img-${carId}`);
-                        if (imgElement) {
-                            imgElement.src = url;
-                            imgElement.onload = () => imgElement.style.opacity = "1";
+                        const img = document.getElementById(`img-${carId}`);
+                        if (img) {
+                            img.src = url;
+                            img.onload = () => img.style.opacity = "1";
                         }
-                    } catch (e) {
-                        console.warn(`Image missing for ${carId}`);
-                    }
+                    } catch (e) { console.warn(carId); }
                 });
 
+                // Wait for all HTML to be created
                 await Promise.all(cardPromises);
+                
+                // Give the browser 100ms to calculate layout, then shrink text
+                setTimeout(adjustFontSizes, 100);
 
             } catch (error) {
-                console.error("Error loading case:", error);
-                grid.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
+                console.error(error);
+                grid.innerHTML = `<p>Error loading case.</p>`;
             }
         }
-
         loadCaseCars();
     </script>
 </body>

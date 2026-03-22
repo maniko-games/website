@@ -55,59 +55,51 @@
         const storage = getStorage(app);
 
         const urlParams = new URLSearchParams(window.location.search);
-        const type = urlParams.get('type'); // "TH" or "STH"
+        const type = urlParams.get('type');
 
         const cleanType = type === "STH" ? "Super Treasure Hunts" : "Treasure Hunts";
         document.title = `${cleanType} List - Maniko Hot Wheels`;
 
-        const metaDesc = document.querySelector('meta[name="description"]') || document.createElement('meta');
-        metaDesc.name = "description";
-        metaDesc.content = `Complete database of Hot Wheels ${cleanType}. Browse cases and high-res images for 2024-2026.`;
-        if (!document.querySelector('meta[name="description"]')) document.head.appendChild(metaDesc);
-
         const titleElement = document.getElementById("page-title");
         titleElement.innerText = type === "STH" ? "🔥 Super Treasure Hunts" : "💎 Treasure Hunts";
 
+        // --- THE SHRINKER FUNCTION ---
+        function adjustFontSizes() {
+            const titles = document.querySelectorAll('#cars-grid h3');
+            titles.forEach(title => {
+                let fontSize = 1.0; 
+                // Decrease font size until it fits in the 2-line box (min-height/max-height in CSS)
+                while (title.scrollHeight > title.offsetHeight && fontSize > 0.5) {
+                    fontSize -= 0.03; 
+                    title.style.fontSize = fontSize + 'em';
+                }
+            });
+        }
+
         async function loadTreasures() {
             const grid = document.getElementById("cars-grid");
-            gtag('event', 'view_treasure_list', {
-                'treasure_type': type
-            });
+            gtag('event', 'view_treasure_list', { 'treasure_type': type });
+
             try {
                 const carsRef = collection(db, "mainline-cars");
-                
-                // Determine which field to filter by
                 const fieldToFilter = type === "STH" ? "Super TH" : "TH";
                 const q = query(carsRef, where(fieldToFilter, "==", true));
 
                 const querySnapshot = await getDocs(q);
                 let cars = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-                // Manual sort: Year DESC (2026 -> 2024), then Case Letter DESC (Q -> A)
+                // Sort: Year DESC, then Case Letter DESC
                 cars.sort((a, b) => {
                     const getSortData = (car) => {
                         const caseStr = Array.isArray(car.Case) ? car.Case[0] : car.Case;
-                        // Year: Get the last 4 digits
                         const year = parseInt(caseStr.match(/\d{4}$/)) || 0;
-                        // Letter: Get the very first character (A, B, C, etc.)
                         const letter = caseStr.trim().charAt(0).toUpperCase();
                         return { year, letter };
                     };
-
                     const dataA = getSortData(a);
                     const dataB = getSortData(b);
-
-                    // 1. Sort by Year (Newest first)
-                    if (dataB.year !== dataA.year) {
-                        return dataB.year - dataA.year;
-                    }
-
-                    // 2. Sort by Case Letter (Q -> A)
-                    // If B is 'D' and A is 'A', this returns a positive number, putting B first.
-                    if (dataB.letter > dataA.letter) return 1;
-                    if (dataB.letter < dataA.letter) return -1;
-                    
-                    // 3. Optional: alphabetical by Model if Year and Case are same
+                    if (dataB.year !== dataA.year) return dataB.year - dataA.year;
+                    if (dataB.letter !== dataA.letter) return dataB.letter > dataA.letter ? 1 : -1;
                     return a.Model.localeCompare(b.Model);
                 });
 
@@ -117,17 +109,10 @@
                     const carId = carData.id;
                     const ext = carData.ImageExt || "jpg";
                     
-                    // 1. Create an anchor tag instead of a div
                     const carCard = document.createElement("a");
-                    carCard.href = `carinfo.html?id=${carId}`; // Link to details
+                    carCard.href = `carinfo.html?id=${carId}`;
+                    // Let style.css handle the class/look, we only keep link behavior here
                     
-                    // 2. Add styling and hover effects
-                    carCard.style = "background: white; border-radius: 12px; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; text-decoration: none; color: #333; transition: transform 0.2s ease;";
-                    
-                    carCard.onmouseover = () => carCard.style.transform = "scale(1.02)";
-                    carCard.onmouseout = () => carCard.style.transform = "scale(1)";
-
-                    // 3. Build the card HTML
                     carCard.innerHTML = `
                         <div style="width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 8px; margin-bottom: 10px;">
                             <img id="img-${carId}" 
@@ -147,23 +132,28 @@
                     `;
                     grid.appendChild(carCard);
 
-                    // Image fetch logic stays exactly the same below...
-
                     try {
                         const url = await getDownloadURL(ref(storage, `${carId}.${ext}`));
                         const img = document.getElementById(`img-${carId}`);
-                        img.src = url;
-                        img.onload = () => img.style.opacity = "1";
-                    } catch (e) { console.warn(e); }
+                        if (img) {
+                            img.src = url;
+                            img.onload = () => img.style.opacity = "1";
+                        }
+                    } catch (e) { console.warn(carId); }
                 });
 
+                // WAIT for all cards to be in the DOM
                 await Promise.all(cardPromises);
+                
+                // RUN the shrinker after a tiny delay to ensure layout is ready
+                setTimeout(adjustFontSizes, 100);
 
             } catch (error) {
                 console.error(error);
                 grid.innerHTML = `<p style="color:red;">Error loading treasures.</p>`;
             }
         }
+
         loadTreasures();
     </script>
 </body>
