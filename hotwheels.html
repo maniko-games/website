@@ -18,11 +18,49 @@
         </a>
     </div>
 
-    <h1>Hot Wheels Collection</h1>
+    <div style="margin: 20px auto; padding: 20px; background: white; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+        <h3 style="margin-top: 0; color: #333;">Quick Case Jump</h3>
+        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+            
+            <select id="jump-year" style="padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 1em; cursor: pointer;">
+                <option value="2026">2026</option>
+                <option value="2025">2025</option>
+                <option value="2024">2024</option>
+            </select>
 
-    <div id="cars-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 20px;">
-        <p id="loading-text">Loading collection...</p>
+            <select id="jump-case" style="padding: 10px; border-radius: 8px; border: 1px solid #ddd; font-size: 1em; cursor: pointer;">
+                <option value="A">Case A</option>
+                <option value="B">Case B</option>
+                <option value="C">Case C</option>
+                <option value="D">Case D</option>
+                <option value="E">Case E</option>
+                <option value="F">Case F</option>
+                <option value="G">Case G</option>
+                <option value="H">Case H</option>
+                <option value="J">Case J</option>
+                <option value="K">Case K</option>
+                <option value="L">Case L</option>
+                <option value="M">Case M</option>
+                <option value="N">Case N</option>
+                <option value="P">Case P</option>
+                <option value="Q">Case Q</option>
+            </select>
+
+            <button onclick="jumpToCase()" style="padding: 10px 25px; border-radius: 8px; border: none; background: #2196F3; color: white; font-weight: bold; cursor: pointer; transition: background 0.2s;">
+                Open
+            </button>
+        </div>
     </div>
+
+    <h1 id="section-title">Featured Cars</h1>
+
+    <div id="cars-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 20px; justify-content: center;">
+        <p id="loading-text">Loading featured cars...</p>
+    </div>
+
+    <button id="shuffle-btn" onclick="shuffleCars()" style="margin: 20px auto; padding: 12px 30px; border-radius: 30px; border: 2px solid #2196F3; background: white; color: #2196F3; font-weight: bold; cursor: pointer; font-size: 1.1em; transition: all 0.2s;">
+        Shuffle Collection 🎲
+    </button>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -43,73 +81,20 @@
         const db = getFirestore(app);
         const storage = getStorage(app);
 
-        async function displayAllCars() {
+        let cachedCars = []; // Store cars so shuffle is fast
+
+        async function loadAndDisplayRandom() {
             const grid = document.getElementById("cars-grid");
-            grid.innerHTML = "<p>Loading your collection...</p>";
-
+            
             try {
-                const querySnapshot = await getDocs(query(collection(db, "mainline-cars")));
-                let allCars = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                // Only fetch from Firebase if we don't have the cars yet
+                if (cachedCars.length === 0) {
+                    grid.innerHTML = "<p>Fetching collection...</p>";
+                    const querySnapshot = await getDocs(query(collection(db, "mainline-cars")));
+                    cachedCars = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                }
 
-                // --- Keep your existing Manual Sorting Logic here ---
-                allCars.sort((a, b) => {
-                    const getFirstCase = (car) => Array.isArray(car.Case) ? car.Case[0] : (car.Case || "");
-                    const fullCaseA = getFirstCase(a); const fullCaseB = getFirstCase(b);
-                    const yearA = parseInt(fullCaseA.slice(-4)) || 0; const yearB = parseInt(fullCaseB.slice(-4)) || 0;
-                    if (yearA !== yearB) return yearB - yearA;
-                    if (fullCaseA !== fullCaseB) return fullCaseB.localeCompare(fullCaseA);
-                    if (b["Super TH"] !== a["Super TH"]) return b["Super TH"] - a["Super TH"];
-                    if (b["TH"] !== a["TH"]) return b["TH"] - a["TH"];
-                    return a.Model.localeCompare(b.Model);
-                });
-
-                grid.innerHTML = ""; 
-
-                // Start all card processing at once
-                const cardPromises = allCars.map(async (carData) => {
-                    const carId = carData.id;
-                    const carCard = document.createElement("div");
-                    carCard.style = "background: white; border-radius: 12px; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center;";
-                    
-                    // Build the card structure immediately with a placeholder
-                    carCard.innerHTML = `
-                        <a href="carinfo.html?id=${carId}" style="text-decoration: none; color: inherit; display: block;">
-                            <div style="width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 8px; margin-bottom: 10px;">
-                                <img id="img-${carId}" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
-                                    style="max-width: 100%; max-height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.3s ease;">
-                            </div>
-                            <h3 style="margin: 5px 0; font-size: 1.1em;">${carData.Model}</h3>
-                        </a>
-
-                        <p style="color: #666; margin: 5px 0; font-size: 0.9em;">
-                            <strong>Case:</strong> ${
-                                (Array.isArray(carData.Case) ? carData.Case : [carData.Case]).map(c => 
-                                `<a href="case.html?name=${encodeURIComponent(c)}" style="color: #2196F3; text-decoration: none; position: relative; z-index: 2;">${c}</a>`).join(', ')
-                            }
-                        </p>
-
-                        <p style="font-size: 0.9em; font-weight: ${carData["Super TH"] || carData["TH"] ? 'bold' : 'normal'}; 
-                        color: ${carData["Super TH"] ? '#e67e22' : (carData["TH"] ? '#95a5a6' : '#666')}; margin: 5px 0;">
-                        ${carData["Super TH"] ? 'STH' : (carData["TH"] ? 'TH' : 'Mainline')}
-                        </p>
-                    `;
-                    carCard.style.cursor = "pointer";
-                    grid.appendChild(carCard);
-
-                    // Fetch image in the background
-                    const ext = carData.ImageExt || "jpg";
-                    try {
-                        const url = await getDownloadURL(ref(storage, `${carId}.${ext}`));
-                        const imgElement = document.getElementById(`img-${carId}`);
-                        imgElement.src = url;
-                        imgElement.onload = () => imgElement.style.opacity = "1"; // Fade in
-                    } catch (err) {
-                        console.warn(`Missing image for ${carId}`);
-                    }
-                });
-
-                // This runs all fetches in parallel
-                await Promise.all(cardPromises);
+                renderRandomSelection();
 
             } catch (error) {
                 console.error("Error:", error);
@@ -117,7 +102,70 @@
             }
         }
 
-        displayAllCars();
+        function renderRandomSelection() {
+            const grid = document.getElementById("cars-grid");
+            grid.innerHTML = ""; // Clear current cars
+
+            // 1. Shuffle the array and pick the first 4
+            const shuffled = [...cachedCars].sort(() => 0.5 - Math.random());
+            const selected = shuffled.slice(0, 4);
+
+            // 2. Render the 4 cards
+            selected.forEach(async (carData) => {
+                const carId = carData.id;
+                const carCard = document.createElement("div");
+                carCard.style = "background: white; border-radius: 12px; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; transition: transform 0.2s;";
+                
+                carCard.innerHTML = `
+                    <a href="carinfo.html?id=${carId}" style="text-decoration: none; color: inherit; display: block;">
+                        <div style="width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 8px; margin-bottom: 10px;">
+                            <img id="img-${carId}" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+                                style="max-width: 100%; max-height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.3s ease;">
+                        </div>
+                        <h3 style="margin: 5px 0; font-size: 1.1em;">${carData.Model}</h3>
+                    </a>
+                    <p style="color: #666; margin: 5px 0; font-size: 0.9em;">
+                        <strong>Case:</strong> ${
+                            (Array.isArray(carData.Case) ? carData.Case : [carData.Case]).map(c => 
+                            `<a href="case.html?name=${encodeURIComponent(c)}" style="color: #2196F3; text-decoration: none; position: relative; z-index: 2;">${c}</a>`).join(', ')
+                        }
+                    </p>
+                    <p style="font-size: 0.9em; font-weight: bold; color: ${carData["Super TH"] ? '#e67e22' : (carData["TH"] ? '#95a5a6' : '#666')}; margin: 5px 0;">
+                        ${carData["Super TH"] ? 'STH' : (carData["TH"] ? 'TH' : 'Mainline')}
+                    </p>
+                `;
+                grid.appendChild(carCard);
+
+                // Fetch image
+                const ext = carData.ImageExt || "jpg";
+                try {
+                    const url = await getDownloadURL(ref(storage, `${carId}.${ext}`));
+                    const imgElement = document.getElementById(`img-${carId}`);
+                    if (imgElement) {
+                        imgElement.src = url;
+                        imgElement.onload = () => imgElement.style.opacity = "1";
+                    }
+                } catch (err) { console.warn(`Missing image for ${carId}`); }
+            });
+        }
+
+        // Expose the shuffle function to the button
+        window.shuffleCars = () => renderRandomSelection();
+
+        // Initial Load
+        loadAndDisplayRandom();
+
+        // Add 'window.jumpToCase =' at the beginning to make it public
+        window.jumpToCase = function() {
+            const year = document.getElementById('jump-year').value;
+            const caseLetter = document.getElementById('jump-case').value;
+            
+            // This matches your format: Case A - 2026
+            const caseName = `${caseLetter} - ${year}`;
+            
+            // Redirect to the case page
+            window.location.href = `case.html?name=${encodeURIComponent(caseName)}`;
+        };
     </script>
 </body>
 </html>

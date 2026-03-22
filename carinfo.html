@@ -34,6 +34,61 @@
     #car-image:hover {
         transform: scale(1.02);
     }
+
+    /* --- STH Comparison Slider Styles --- */
+    .sth-comparison-container {
+        position: relative;
+        width: 100%; height: 100%;
+        overflow: hidden;
+        border-radius: 8px; /* Matches frame *;
+        cursor: ew-resize; /* East-West resize cursor */
+        user-select: none; /* Prevents text selection while dragging */
+    }
+
+    .sth-comparison-image {
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        object-fit: contain; /* IMPORTANT: Keeps full card visible */;
+        display: block;
+    }
+
+    /* The 'Dud' (Mainline) image goes in this clipping div */
+    .sth-comparison-overlay {
+        position: absolute;
+        top: 0; left: 0;
+        height: 100%; width: 100%; /* Initially 100% */;
+        overflow: hidden;
+        /* Default position (Dud image clipped, STH visible) */
+        clip-path: inset(0 0 0 80%); /* Only show right 20% */;
+    }
+
+    /* The central drag handle line */
+    .sth-comparison-handle {
+        position: absolute;
+        top: 0; bottom: 0;
+        left: 80%; /* Initial pos (aligns with clip-path) */
+        width: 4px;
+        background-color: #2196F3; /* Home theme blue *;
+        cursor: ew-resize;
+        z-index: 10;
+        transform: translateX(-50%); /* Center the line */
+    }
+
+    /* The handle circle/button */
+    .sth-comparison-handle::after {
+        content: "⬌"; /* Resizing arrows character */
+        color: white; font-weight: bold;
+        display: flex; align-items: center; justify-content: center;
+        position: absolute;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        width: 40px; height: 40px;
+        background-color: #2196F3;
+        border: 4px solid white;
+        border-radius: 50%;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
 </style>
 
 <body style="font-family: sans-serif; text-align: center; padding: 20px; background-color: #f9f9f9;">
@@ -58,7 +113,6 @@
             <div id="car-image-frame" style="width: 100%; max-width: 500px; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 15px; margin: 0 auto 20px auto; padding: 20px; border: 1px solid #eee;">
                 <img id="car-image" src="" style="max-width: 100%; max-height: 100%; object-fit: contain;">
             </div>
-
             <h1 id="car-model" style="margin: 10px 0; font-size: 2.5em;"></h1>
             <p id="car-case" style="font-size: 1.2em; color: #666;"></p>
             <div id="car-type" style="font-weight: bold; font-size: 1.5em; margin-top: 15px; padding: 10px; border-radius: 8px;"></div>
@@ -124,18 +178,73 @@
                         typeDiv.style.color = "#666";
                     }
 
-                    // --- Image Setup ---
-                    const ext = data.ImageExt || "jpg";
-                    const url = await getDownloadURL(ref(storage, `${carId}.${ext}`));
-                    const carImg = document.getElementById("car-image");
-                    carImg.src = url;
+                    // --- 3. Image & STH Comparison Logic ---
+                    const frame = document.getElementById("car-image-frame");
+                    let dudFound = false;
+                    let sthUrl, dudUrl;
 
-                    const lightbox = document.getElementById("lightbox");
-                    const lightboxImg = document.getElementById("lightbox-img");
-                    carImg.onclick = () => {
-                        lightboxImg.src = carImg.src;
-                        lightbox.style.display = 'flex';
-                    };
+                    // FIX: Define ext here before fetching the URL
+                    const ext = data.ImageExt || "jpg";
+
+                    // A. Fetch current STH image
+                    sthUrl = await getDownloadURL(ref(storage, `${carId}.${ext}`));
+
+                    // B. IF CURRENT CAR IS STH, Search for Dud counterpart
+                    if (data["Super TH"]) {
+                        try {
+                            // We need to define carsRef before searching (it's defined later in your original script)
+                            const carsRef = collection(db, "mainline-cars");
+                            const dudQuery = query(carsRef, where("Model", "==", data.Model), where("Super TH", "==", false));
+                            const dudSnap = await getDocs(dudQuery);
+
+                            if (!dudSnap.empty) {
+                                dudFound = true;
+                                const dudData = dudSnap.docs[0].data();
+                                const dudId = dudSnap.docs[0].id;
+                                const dudExt = dudData.ImageExt || "jpg";
+                                dudUrl = await getDownloadURL(ref(storage, `${dudId}.${dudExt}`));
+                            }
+                        } catch (e) { console.warn("Error searching for dud", e); }
+                    }
+
+                    // C. Render UI based on what we found
+                    if (dudFound) {
+                        // --- BUILD COMPARISON SLIDER (STH on left, Dud on right) ---
+                        frame.innerHTML = `
+                            <div class="sth-comparison-container" id="comparison-slider">
+                                <img src="${sthUrl}" class="sth-comparison-image" alt="STH Version">
+                                
+                                <div class="sth-comparison-overlay" id="comparison-overlay">
+                                    <img src="${dudUrl}" class="sth-comparison-image" alt="Dud Version">
+                                </div>
+                                
+                                <div class="sth-comparison-handle" id="comparison-handle"></div>
+                            </div>
+                        `;
+
+                        // D. ACTIVATE SLIDER JAVASCRIPT
+                        activateSlider();
+
+                        // E. Update cursor for frame (no lightbox on comparison)
+                        frame.style.cursor = "default";
+
+                    } else {
+                        // --- STANDARD SINGLE IMAGE VIEW (No dud found or not STH) ---
+                        frame.innerHTML = `<img id="car-image" src="${sthUrl}" style="max-width: 100%; max-height: 100%; object-fit: contain;">`;
+                        
+                        const carImg = document.getElementById("car-image");
+
+                        // F. ACTIVATE LIGHTBOX (Standard view only)
+                        const lightbox = document.getElementById("lightbox");
+                        const lightboxImg = document.getElementById("lightbox-img");
+                        carImg.onclick = () => {
+                            lightboxImg.src = carImg.src;
+                            lightbox.style.display = 'flex';
+                        };
+                        
+                        // Apply cursor style to single image
+                        carImg.style.cursor = "zoom-in";
+                    }
 
                     // --- Treasure Search Logic (Moved inside here) ---
                     const treasureContainer = document.createElement("div");
@@ -207,17 +316,24 @@
                             
                             const tCard = document.createElement("a");
                             tCard.href = `carinfo.html?id=${tId}`;
-                            
-                            // Consistent card styling with the home page
                             tCard.style = "text-decoration: none; color: #333; background: white; border: 1px solid #eee; border-radius: 15px; padding: 10px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: transform 0.2s;";
                             
+                            // --- Case Link Logic ---
+                            const cases = Array.isArray(tData.Case) ? tData.Case : [tData.Case];
+                            const caseLinks = cases.map(c => {
+                                const caseEncoded = encodeURIComponent(c);
+                                // We use stopPropagation so clicking the Case doesn't open the Car Info too
+                                return `<span style="color: #2196F3; text-decoration: underline; cursor: pointer;" 
+                                            onclick="event.preventDefault(); event.stopPropagation(); window.location.href='case.html?name=${caseEncoded}'">${c}</span>`;
+                            }).join(', ');
+
                             tCard.innerHTML = `
                                 <div style="width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 8px; margin-bottom: 12px;">
                                     <img id="t-img-${tId}" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" 
                                         style="max-width: 100%; max-height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.3s;">
                                 </div>
-                                
                                 <div style="margin: 5px 0; font-weight: bold; font-size: 1em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${tData.Model}</div>
+                                <div style="font-size: 0.85em; color: #666; margin-bottom: 5px;">Case: ${caseLinks}</div>                                
                                 <p style="font-size: 0.9em; font-weight: bold; color: ${tColor}; margin: 2px 0;">${tLabel}</p>
                             `;
                             treasuresGrid.appendChild(tCard);
@@ -241,6 +357,87 @@
                     document.getElementById("loading").style.display = "none";
                     document.getElementById("car-content").style.display = "block";
 
+                    // 5a. Search for Variants in the database
+                    const variantsGridId = "variants-grid"; // ID for our grid below
+                    const variantsQuery = query(carsRef, where("Model", "==", data.Model));
+                    const variantsSnap = await getDocs(variantsQuery);
+
+                    const otherVariants = [];
+                    variantsSnap.forEach(doc => {
+                        // Only add if it's NOT the car we are currently looking at
+                        if (doc.id !== carId) {
+                            otherVariants.push({ id: doc.id, ...doc.data() });
+                        }
+                    });
+
+                    // 5b. Only draw the section if variants actually exist
+                    if (otherVariants.length > 0) {
+                        const variantsWrapper = document.createElement("div");
+                        variantsWrapper.id = "variants-section-wrapper";
+                        // Centering the container (width: 100% and text-align)
+                        variantsWrapper.style = "display: flex; flex-direction: column; align-items: center; width: 100%; text-align: center; margin-top: 40px;";
+                        
+                        // The Section HTML
+                        variantsWrapper.innerHTML = `
+                            <h3 style="margin-bottom: 20px;">Other variants of this model:</h3>
+                            <div id="${variantsGridId}"></div>
+                        `;
+
+                        document.getElementById("treasure-section-outside").appendChild(variantsWrapper);
+
+                        const variantsGrid = document.getElementById(variantsGridId);
+
+                        // Grid Styling: Changed auto-fill to auto-fit to enable centering
+                        variantsGrid.style.display = "grid";
+                        variantsGrid.style.gridTemplateColumns = "repeat(auto-fit, minmax(200px, 250px))";
+                        variantsGrid.style.justifyContent = "center"; // Active because of auto-fit
+                        variantsGrid.style.width = "100%";
+                        variantsGrid.style.maxWidth = "1200px"; // Matches the standard page width
+                        variantsGrid.style.gap = "20px";
+                        variantsGrid.style.padding = "20px 0";
+
+                        // Draw the Variant Cards
+                        otherVariants.forEach(async (vData) => {
+                            const vId = vData.id;
+                            const vLabel = vData["Super TH"] ? "STH" : (vData["TH"] ? "TH" : "Mainline");
+                            const vColor = vData["Super TH"] ? "#e67e22" : (vData["TH"] ? "#95a5a6" : "#666");
+
+                            const vCard = document.createElement("a");
+                            vCard.href = `carinfo.html?id=${vId}`;
+                            vCard.style = "text-decoration: none; color: #333; background: white; border: 1px solid #eee; border-radius: 12px; padding: 10px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: transform 0.2s;";
+                            
+                            // --- Case Link Logic (Same as Treasures) ---
+                            const vCases = Array.isArray(vData.Case) ? vData.Case : [vData.Case];
+                            const vCaseLinks = vCases.map(c => {
+                                const caseEncoded = encodeURIComponent(c);
+                                return `<span style="color: #2196F3; text-decoration: underline; cursor: pointer;" 
+                                            onclick="event.preventDefault(); event.stopPropagation(); window.location.href='case.html?name=${caseEncoded}'">${c}</span>`;
+                            }).join(', ');
+
+                            vCard.innerHTML = `
+                                <div style="width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 8px; margin-bottom: 12px;">
+                                    <img id="v-img-${vId}" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+                                        style="max-width: 100%; max-height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.3s;">
+                                </div>
+                                <div style="margin: 5px 0; font-weight: bold; font-size: 1.05em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${vData.Model}</div>
+                                <div style="font-size: 0.85em; color: #666; margin-bottom: 5px;">Case: ${vCaseLinks}</div>
+                                <p style="font-size: 0.9em; font-weight: bold; color: ${vColor}; margin: 2px 0;">${vLabel}</p>
+                            `;
+                            variantsGrid.appendChild(vCard);
+
+                            // Fetch the image
+                            try {
+                                const vExt = vData.ImageExt || "jpg";
+                                const vUrl = await getDownloadURL(ref(storage, `${vId}.${vExt}`));
+                                const vImg = document.getElementById(`v-img-${vId}`);
+                                if (vImg) {
+                                    vImg.src = vUrl;
+                                    vImg.onload = () => vImg.style.opacity = "1";
+                                }
+                            } catch (e) { console.warn("Missing image", vId); }
+                        });
+                    }
+
                 } else {
                     document.getElementById("loading").innerText = "Car not found!";
                 }
@@ -248,6 +445,54 @@
                 console.error(e);
                 document.getElementById("loading").innerText = "Error loading details.";
             }
+        }
+
+        // --- Function to handle comparison slider dragging ---
+        function activateSlider() {
+            const slider = document.getElementById('comparison-slider');
+            const overlay = document.getElementById('comparison-overlay');
+            const handle = document.getElementById('comparison-handle');
+
+            if (!slider || !overlay || !handle) return;
+
+            let isDragging = false;
+
+            // Helper: move the slider to 'x' position (percentage string)
+            function move(xPerc) {
+                handle.style.left = xPerc;
+                overlay.style.clipPath = `inset(0 0 0 ${xPerc})`; // Clip left side of Dud image
+            }
+
+            // Main interaction logic
+            function handleMove(e) {
+                if (!isDragging) return;
+
+                let rect = slider.getBoundingClientRect();
+                let x = e.clientX || e.touches[0].clientX; // Handles Mouse or Touch
+
+                // Calculate x position relative to the slider
+                let pos = x - rect.left;
+                let perc = (pos / rect.width) * 100;
+
+                // Constraints: Keep within 5% to 95% boundaries
+                if (perc < 5) perc = 5;
+                if (perc > 95) perc = 95;
+
+                // Apply new position
+                move(perc + '%');
+            }
+
+            // START (Mouse & Touch)
+            handle.addEventListener('mousedown', (e) => { isDragging = true; e.preventDefault(); });
+            handle.addEventListener('touchstart', (e) => { isDragging = true; });
+
+            // STOP (Mouse & Touch, anywhere on window)
+            window.addEventListener('mouseup', () => isDragging = false);
+            window.addEventListener('touchend', () => isDragging = false);
+
+            // MOVE (Mouse & Touch, anywhere on window for smooth dragging)
+            window.addEventListener('mousemove', handleMove);
+            window.addEventListener('touchmove', handleMove);
         }
 
         loadCarDetails();
