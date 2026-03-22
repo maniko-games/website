@@ -4,6 +4,7 @@
     <link rel="preconnect" href="https://firebasestorage.googleapis.com">
     <title>Sitemap Index</title>
     <link rel="icon" type="image/png" href="https://github.com/maniko-games/website/blob/main/Images/th.png?raw=true">
+    <link rel="stylesheet" href="style.css">
     <meta name="robots" content="noindex, follow">
 </head>
 <body>
@@ -37,7 +38,7 @@
                 
                 const caseInfo = Array.isArray(data.Case) ? data.Case[0] : data.Case;
                 link.innerText = `${data.Model} (${caseInfo})`;
-                
+
                 container.appendChild(link);
                 container.appendChild(document.createElement('br'));
             });
