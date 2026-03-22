@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="preconnect" href="https://firebasestorage.googleapis.com">
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-V3WYKC0X1Q"></script>
     <script>
@@ -10,10 +11,13 @@
 
     gtag('config', 'G-V3WYKC0X1Q');
     </script>
-    
+
     <meta charset="UTF-8">
     <title>Case View - Maniko Hot Wheels</title>
+    <link rel="icon" type="image/png" href="https://github.com/maniko-games/website/blob/main/Images/th.png?raw=true">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
+
 <body style="font-family: sans-serif; text-align: center; padding: 20px; background-color: #f9f9f9;">
 
     <div style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center;">
@@ -30,7 +34,7 @@
 
     <h1 id="case-title">Loading Case...</h1>
 
-    <div id="cars-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 20px;"></div>
+    <div id="cars-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; padding: 10px; justify-content: center; min-height: 500px; transition: opacity 0.5s ease;"></div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -54,10 +58,23 @@
         // 1. Get the Case Name from the URL
         const urlParams = new URLSearchParams(window.location.search);
         const caseName = urlParams.get('name');
+        const cleanCase = caseName ? caseName : "Hot Wheels";
+        document.title = `${cleanCase} List - Maniko Hot Wheels Database`;
+        let metaDesc = document.querySelector('meta[name="description"]');
+        if (!metaDesc) {
+            metaDesc = document.createElement('meta');
+            metaDesc.name = "description";
+            document.head.appendChild(metaDesc);
+        }
+        metaDesc.content = `Full list of cars in ${cleanCase}. Check for Super Treasure Hunts, Treasure Hunts, and Mainline models with high-res photos.`;
+
         document.getElementById("case-title").innerText = "Case: " + caseName;
 
         async function loadCaseCars() {
             const grid = document.getElementById("cars-grid");
+            gtag('event', 'view_case', {
+                'case_name': caseName
+            });
             try {
                 const carsRef = collection(db, "mainline-cars");
                 grid.innerHTML = "<p>Loading cars for this case...</p>";
@@ -104,12 +121,15 @@
                     carCard.onmouseout = () => carCard.style.transform = "scale(1)";
 
                     let typeLabel = carData["Super TH"] ? "STH" : (carData["TH"] ? "TH" : "Mainline");
-                    let typeColor = carData["Super TH"] ? "#e67e22" : (carData["TH"] ? "#95a5a6" : "#666");
+                    let typeColor = carData["Super TH"] ? "#e67e22" : (carData["TH"] ? "#95a5a6" : "#555");
 
                     carCard.innerHTML = `
                         <div style="width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 8px; margin-bottom: 10px;">
-                            <img id="img-${carId}" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
-                                style="max-width: 100%; max-height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.3s ease;">
+                            <img id="img-${carId}" 
+                                src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+                                alt="Hot Wheels ${carData.Model}"
+                                loading="lazy"
+                                style="width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.3s ease;">
                         </div>
                         <h3 style="margin: 10px 0; font-size: 1.1em;">${carData.Model}</h3>
                         <p style="font-weight: bold; color: ${typeColor}; margin: 5px 0;">${typeLabel}</p>

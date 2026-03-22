@@ -1,18 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="preconnect" href="https://firebasestorage.googleapis.com">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>Car Details - Maniko Hot Wheels</title>
+    <meta name="description" content="Loading Hot Wheels car details...">
+    <meta property="og:title" content="Maniko Hot Wheels Database">
+    <meta property="og:description" content="View details and high-res images.">
+    <meta property="og:image" content="">
+
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-V3WYKC0X1Q"></script>
     <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-
-    gtag('config', 'G-V3WYKC0X1Q');
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-V3WYKC0X1Q');
     </script>
 
-    <meta charset="UTF-8">
     <title>Car Details - Maniko Hot Wheels</title>
+    <link rel="icon" type="image/png" href="https://github.com/maniko-games/website/blob/main/Images/th.png?raw=true">
 </head>
 
 <style>
@@ -79,7 +86,7 @@
         top: 0; bottom: 0;
         left: 80%; /* Initial pos (aligns with clip-path) */
         width: 4px;
-        background-color: #2196F3; /* Home theme blue *;
+        background-color: #2196F3; /* Home theme blue */;
         cursor: ew-resize;
         z-index: 10;
         transform: translateX(-50%); /* Center the line */
@@ -131,7 +138,6 @@
     <div id="treasure-section-outside" style="max-width: 1200px; margin: 40px auto 0 auto;"></div>
 
     <script type="module">
-        // 1. Added missing imports: collection, query, where, getDocs
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, doc, getDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
@@ -162,23 +168,50 @@
 
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    
-                    // --- Basic Info Setup ---
-                    document.getElementById("car-model").innerText = data.Model;
-                    const pageTitle = `${data.Model} - Maniko Hot Wheels Database`;
-                    document.title = pageTitle;
-                    // Update meta description dynamically too!
+
+                    // --- 1. SEO & Metadata Setup ---
+                    document.title = `${data.Model} - Maniko Hot Wheels`;
                     const metaDesc = document.querySelector('meta[name="description"]');
                     if (metaDesc) {
-                        metaDesc.content = `Check out details for the ${data.Model} from Case ${data.Case}. View high-res images and comparison sliders.`;
+                        metaDesc.content = `Technical details for the ${data.Model} from Hot Wheels Case ${data.Case}.`;
                     }
+                    document.querySelector('meta[property="og:title"]').setAttribute("content", data.Model);
+                    
+                    // Fetch Primary Image URL
+                    const ext = data.ImageExt || "jpg";
+                    const sthUrl = await getDownloadURL(ref(storage, `${carId}.${ext}`));
+                    document.querySelector('meta[property="og:image"]').setAttribute("content", sthUrl);
+                    
+                    // --- 2. JSON-LD Schema ---
+                    const schemaData = {
+                        "@context": "https://schema.org/",
+                        "@type": "Thing", 
+                        "name": data.Model,
+                        "image": sthUrl,
+                        "description": `Details for the Hot Wheels ${data.Model}. Part of the ${data.Case} collection.`,
+                        "mainEntityOfPage": {
+                            "@type": "WebPage",
+                            "@id": window.location.href
+                        },
+                        "identifier": carId,
+                        "additionalProperty": [
+                            { "@type": "PropertyValue", "name": "Case", "value": data.Case },
+                            { "@type": "PropertyValue", "name": "Type", "value": data["Super TH"] ? "Super Treasure Hunt" : (data["TH"] ? "Treasure Hunt" : "Mainline") }
+                        ]
+                    };
+                    const schemaScript = document.createElement('script');
+                    schemaScript.type = 'application/ld+json';
+                    schemaScript.text = JSON.stringify(schemaData);
+                    document.head.appendChild(schemaScript);
+                    
+                    // --- 3. UI Info Setup ---
+                    document.getElementById("car-model").innerText = data.Model;
                     
                     const cases = Array.isArray(data.Case) ? data.Case : [data.Case];
                     const caseLinks = cases.map(c => {
                         const caseEncoded = encodeURIComponent(c);
                         return `<a href="case.html?name=${caseEncoded}" style="color: #2196F3; text-decoration: none; border-bottom: 1px dashed #2196F3;">${c}</a>`;
                     }).join(', ');
-
                     document.getElementById("car-case").innerHTML = "<strong>Case:</strong> " + caseLinks;
                     
                     const typeDiv = document.getElementById("car-type");
@@ -193,23 +226,16 @@
                     } else {
                         typeDiv.innerText = "Mainline";
                         typeDiv.style.color = "#666";
+                        typeDiv.style.backgroundColor = "transparent";
                     }
 
-                    // --- 3. Image & STH Comparison Logic ---
+                    // --- 4. Image & STH Comparison Logic ---
                     const frame = document.getElementById("car-image-frame");
                     let dudFound = false;
-                    let sthUrl, dudUrl;
+                    let dudUrl;
 
-                    // FIX: Define ext here before fetching the URL
-                    const ext = data.ImageExt || "jpg";
-
-                    // A. Fetch current STH image
-                    sthUrl = await getDownloadURL(ref(storage, `${carId}.${ext}`));
-
-                    // B. IF CURRENT CAR IS STH, Search for Dud counterpart
                     if (data["Super TH"]) {
                         try {
-                            // We need to define carsRef before searching (it's defined later in your original script)
                             const carsRef = collection(db, "mainline-cars");
                             const dudQuery = query(carsRef, where("Model", "==", data.Model), where("Super TH", "==", false));
                             const dudSnap = await getDocs(dudQuery);
@@ -224,55 +250,33 @@
                         } catch (e) { console.warn("Error searching for dud", e); }
                     }
 
-                    // C. Render UI based on what we found
                     if (dudFound) {
-                        // --- BUILD COMPARISON SLIDER (STH on left, Dud on right) ---
                         frame.innerHTML = `
                             <div class="sth-comparison-container" id="comparison-slider">
-                                <img src="${sthUrl}" class="sth-comparison-image" alt="STH Version">
-                                
+                                <img src="${sthUrl}" class="sth-comparison-image" alt="${data.Model} STH">
                                 <div class="sth-comparison-overlay" id="comparison-overlay">
-                                    <img src="${dudUrl}" class="sth-comparison-image" alt="Dud Version">
+                                    <img src="${dudUrl}" class="sth-comparison-image" alt="${data.Model} Mainline">
                                 </div>
-                                
                                 <div class="sth-comparison-handle" id="comparison-handle"></div>
                             </div>
                         `;
-
-                        // D. ACTIVATE SLIDER JAVASCRIPT
                         activateSlider();
-
-                        // E. Update cursor for frame (no lightbox on comparison)
                         frame.style.cursor = "default";
-
                     } else {
-                        // --- STANDARD SINGLE IMAGE VIEW (No dud found or not STH) ---
-                        frame.innerHTML = `<img id="car-image" src="${sthUrl}" style="max-width: 100%; max-height: 100%; object-fit: contain;">`;
-                        
+                        frame.innerHTML = `<img id="car-image" src="${sthUrl}" alt="${data.Model}" style="max-width: 100%; max-height: 100%; object-fit: contain;">`;
                         const carImg = document.getElementById("car-image");
-
-                        // F. ACTIVATE LIGHTBOX (Standard view only)
                         const lightbox = document.getElementById("lightbox");
                         const lightboxImg = document.getElementById("lightbox-img");
                         carImg.onclick = () => {
                             lightboxImg.src = carImg.src;
                             lightbox.style.display = 'flex';
                         };
-                        
-                        // Apply cursor style to single image
                         carImg.style.cursor = "zoom-in";
                     }
 
-                    // --- Treasure Search Logic (Moved inside here) ---
-                    const treasureContainer = document.createElement("div");
-                    treasureContainer.innerHTML = `
-                    <div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
-                        <h3 style="margin-top:30px; text-align: center;">Can be found with:</h3>
-                        <div id="treasures-found" style="width: 100%;"></div>
-                    </div>`;
-                    document.getElementById("treasure-section-outside").appendChild(treasureContainer);
-                    const treasuresGrid = document.getElementById("treasures-found");
-                    treasuresGrid.innerHTML = "";
+                    // --- 5. "Found With" & "Variants" Sections ---
+                    const treasureSection = document.getElementById("treasure-section-outside");
+                    treasureSection.innerHTML = ""; // Clear loader
 
                     const carsRef = collection(db, "mainline-cars");
                     const foundTreasures = new Map();
@@ -280,180 +284,84 @@
                     for (const caseName of cases) {
                         const qString = query(carsRef, where("Case", "==", caseName));
                         const qArray = query(carsRef, where("Case", "array-contains", caseName));
-
                         const [snapString, snapArray] = await Promise.all([getDocs(qString), getDocs(qArray)]);
 
                         [...snapString.docs, ...snapArray.docs].forEach(doc => {
                             const d = doc.data();
-                            // Add if it's a treasure and NOT the current car
                             if ((d["Super TH"] || d["TH"]) && doc.id !== carId) {
                                 foundTreasures.set(doc.id, d);
                             }
                         });
                     }
 
-                    // 4. Display the results
-                    if (foundTreasures.size === 0) {
-                        treasuresGrid.innerHTML = "<p style='color:#999;'>No other treasures in these cases.</p>";
-                    } else {
-                        // Change these lines in your script:
-                        treasuresGrid.style.display = "grid";
+                    if (foundTreasures.size > 0) {
+                        const tWrapper = document.createElement("div");
+                        tWrapper.innerHTML = `<h2 style="margin-top:30px;">Can be found with:</h2><div id="treasures-found" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 250px)); gap: 20px; justify-content: center; padding: 20px;"></div>`;
+                        treasureSection.appendChild(tWrapper);
+                        const tGrid = document.getElementById("treasures-found");
 
-                        // 1. Use 'auto-fit' instead of 'auto-fill'
-                        treasuresGrid.style.gridTemplateColumns = "repeat(auto-fit, minmax(200px, 250px))";
-
-                        // 2. Add a max-width and margin auto to the grid itself
-                        treasuresGrid.style.width = "100%";
-                        treasuresGrid.style.maxWidth = "100%";
-                        treasuresGrid.style.margin = "0 auto";
-
-                        // 3. Keep the justify-content
-                        treasuresGrid.style.justifyContent = "center";
-                        treasuresGrid.style.gap = "20px";
-                        treasuresGrid.style.padding = "20px 0";
-
-                        // A. Convert Map to an Array so we can sort it
                         const treasureList = Array.from(foundTreasures, ([id, data]) => ({ id, ...data }));
+                        treasureList.sort((a, b) => (b["Super TH"] ? 1 : -1) || a.Model.localeCompare(b.Model));
 
-                        // B. Sort: STH (True) comes before TH (False)
-                        treasureList.sort((a, b) => {
-                            // If one is STH and the other isn't, STH stays on top
-                            if (b["Super TH"] !== a["Super TH"]) {
-                                return b["Super TH"] ? 1 : -1;
-                            }
-                            // If they are the same type, sort alphabetically by Model
-                            return a.Model.localeCompare(b.Model);
-                        });
-
-                        // C. Loop through the SORTED list
                         treasureList.forEach(async (tData) => {
                             const tId = tData.id;
-                            const tLabel = tData["Super TH"] ? "STH" : "TH";
-                            const tColor = tData["Super TH"] ? "#e67e22" : "#95a5a6";
-                            
                             const tCard = document.createElement("a");
                             tCard.href = `carinfo.html?id=${tId}`;
-                            tCard.style = "text-decoration: none; color: #333; background: white; border: 1px solid #eee; border-radius: 15px; padding: 10px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: transform 0.2s;";
+                            tCard.className = "treasure-card"; // Add your styles or use inline
+                            tCard.style = "text-decoration: none; color: #333; background: white; border: 1px solid #eee; border-radius: 15px; padding: 10px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05);";
                             
-                            // --- Case Link Logic ---
-                            const cases = Array.isArray(tData.Case) ? tData.Case : [tData.Case];
-                            const caseLinks = cases.map(c => {
-                                const caseEncoded = encodeURIComponent(c);
-                                // We use stopPropagation so clicking the Case doesn't open the Car Info too
-                                return `<span style="color: #2196F3; text-decoration: underline; cursor: pointer;" 
-                                            onclick="event.preventDefault(); event.stopPropagation(); window.location.href='case.html?name=${caseEncoded}'">${c}</span>`;
-                            }).join(', ');
-
                             tCard.innerHTML = `
-                                <div style="width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 8px; margin-bottom: 12px;">
-                                    <img id="t-img-${tId}" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" alt="Hot Wheels ${carData.Model}"
-                                        style="max-width: 100%; max-height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.3s;">
+                                <div style="width: 100%; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; background: #eee; border-radius: 8px; overflow: hidden; margin-bottom: 10px;">
+                                    <img id="t-img-${tId}" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" loading="lazy" style="max-width: 100%; max-height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.3s;">
                                 </div>
-                                <div style="margin: 5px 0; font-weight: bold; font-size: 1em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${tData.Model}</div>
-                                <div style="font-size: 0.85em; color: #666; margin-bottom: 5px;">Case: ${caseLinks}</div>                                
-                                <p style="font-size: 0.9em; font-weight: bold; color: ${tColor}; margin: 2px 0;">${tLabel}</p>
+                                <div style="font-weight: bold; font-size: 0.9em;">${tData.Model}</div>
+                                <p style="font-size: 0.8em; font-weight: bold; color: ${tData["Super TH"] ? '#e67e22' : '#95a5a6'}; margin: 5px 0;">${tData["Super TH"] ? 'STH' : 'TH'}</p>
                             `;
-                            treasuresGrid.appendChild(tCard);
+                            tGrid.appendChild(tCard);
 
-                            // Fetch the high-res image
-                            try {
-                                const tExt = tData.ImageExt || "jpg";
-                                const tUrl = await getDownloadURL(ref(storage, `${tId}.${tExt}`));
-                                const tImg = document.getElementById(`t-img-${tId}`);
-                                if (tImg) {
-                                    tImg.src = tUrl;
-                                    tImg.onload = () => tImg.style.opacity = "1";
-                                }
-                            } catch (e) {
-                                console.warn("Could not load treasure image", tId);
-                            }
+                            const tExt = tData.ImageExt || "jpg";
+                            const tUrl = await getDownloadURL(ref(storage, `${tId}.${tExt}`));
+                            const tImg = document.getElementById(`t-img-${tId}`);
+                            if (tImg) { tImg.src = tUrl; tImg.onload = () => tImg.style.opacity = "1"; }
                         });
                     }
 
-                    // Show content
-                    document.getElementById("loading").style.display = "none";
-                    document.getElementById("car-content").style.display = "block";
-
-                    // 5a. Search for Variants in the database
-                    const variantsGridId = "variants-grid"; // ID for our grid below
+                    // Variants logic...
                     const variantsQuery = query(carsRef, where("Model", "==", data.Model));
                     const variantsSnap = await getDocs(variantsQuery);
+                    const variants = variantsSnap.docs.filter(doc => doc.id !== carId);
 
-                    const otherVariants = [];
-                    variantsSnap.forEach(doc => {
-                        // Only add if it's NOT the car we are currently looking at
-                        if (doc.id !== carId) {
-                            otherVariants.push({ id: doc.id, ...doc.data() });
-                        }
-                    });
+                    if (variants.length > 0) {
+                        const vWrapper = document.createElement("div");
+                        vWrapper.innerHTML = `<h2 style="margin-top:40px;">Other variants of this model:</h2><div id="variants-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 250px)); gap: 20px; justify-content: center; padding: 20px;"></div>`;
+                        treasureSection.appendChild(vWrapper);
+                        const vGrid = document.getElementById("variants-grid");
 
-                    // 5b. Only draw the section if variants actually exist
-                    if (otherVariants.length > 0) {
-                        const variantsWrapper = document.createElement("div");
-                        variantsWrapper.id = "variants-section-wrapper";
-                        // Centering the container (width: 100% and text-align)
-                        variantsWrapper.style = "display: flex; flex-direction: column; align-items: center; width: 100%; text-align: center; margin-top: 40px;";
-                        
-                        // The Section HTML
-                        variantsWrapper.innerHTML = `
-                            <h3 style="margin-bottom: 20px;">Other variants of this model:</h3>
-                            <div id="${variantsGridId}"></div>
-                        `;
-
-                        document.getElementById("treasure-section-outside").appendChild(variantsWrapper);
-
-                        const variantsGrid = document.getElementById(variantsGridId);
-
-                        // Grid Styling: Changed auto-fill to auto-fit to enable centering
-                        variantsGrid.style.display = "grid";
-                        variantsGrid.style.gridTemplateColumns = "repeat(auto-fit, minmax(200px, 250px))";
-                        variantsGrid.style.justifyContent = "center"; // Active because of auto-fit
-                        variantsGrid.style.width = "100%";
-                        variantsGrid.style.maxWidth = "1200px"; // Matches the standard page width
-                        variantsGrid.style.gap = "20px";
-                        variantsGrid.style.padding = "20px 0";
-
-                        // Draw the Variant Cards
-                        otherVariants.forEach(async (vData) => {
-                            const vId = vData.id;
-                            const vLabel = vData["Super TH"] ? "STH" : (vData["TH"] ? "TH" : "Mainline");
-                            const vColor = vData["Super TH"] ? "#e67e22" : (vData["TH"] ? "#95a5a6" : "#666");
-
+                        variants.forEach(async (vDoc) => {
+                            const vData = vDoc.data();
+                            const vId = vDoc.id;
                             const vCard = document.createElement("a");
                             vCard.href = `carinfo.html?id=${vId}`;
-                            vCard.style = "text-decoration: none; color: #333; background: white; border: 1px solid #eee; border-radius: 12px; padding: 10px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: transform 0.2s;";
+                            vCard.style = "text-decoration: none; color: #333; background: white; border: 1px solid #eee; border-radius: 12px; padding: 10px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05);";
                             
-                            // --- Case Link Logic (Same as Treasures) ---
-                            const vCases = Array.isArray(vData.Case) ? vData.Case : [vData.Case];
-                            const vCaseLinks = vCases.map(c => {
-                                const caseEncoded = encodeURIComponent(c);
-                                return `<span style="color: #2196F3; text-decoration: underline; cursor: pointer;" 
-                                            onclick="event.preventDefault(); event.stopPropagation(); window.location.href='case.html?name=${caseEncoded}'">${c}</span>`;
-                            }).join(', ');
-
                             vCard.innerHTML = `
-                                <div style="width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 8px; margin-bottom: 12px;">
-                                    <img id="v-img-${vId}" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
-                                        style="max-width: 100%; max-height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.3s;">
+                                <div style="width: 100%; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; background: #eee; border-radius: 8px; overflow: hidden; margin-bottom: 10px;">
+                                    <img id="v-img-${vId}" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" loading="lazy" style="max-width: 100%; max-height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.3s;">
                                 </div>
-                                <div style="margin: 5px 0; font-weight: bold; font-size: 1.05em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${vData.Model}</div>
-                                <div style="font-size: 0.85em; color: #666; margin-bottom: 5px;">Case: ${vCaseLinks}</div>
-                                <p style="font-size: 0.9em; font-weight: bold; color: ${vColor}; margin: 2px 0;">${vLabel}</p>
+                                <div style="font-weight: bold; font-size: 0.9em;">${vData.Model}</div>
+                                <p style="font-size: 0.8em; font-weight: bold; color: #666; margin: 5px 0;">${vData["Super TH"] ? 'STH' : (vData["TH"] ? 'TH' : 'Mainline')}</p>
                             `;
-                            variantsGrid.appendChild(vCard);
+                            vGrid.appendChild(vCard);
 
-                            // Fetch the image
-                            try {
-                                const vExt = vData.ImageExt || "jpg";
-                                const vUrl = await getDownloadURL(ref(storage, `${vId}.${vExt}`));
-                                const vImg = document.getElementById(`v-img-${vId}`);
-                                if (vImg) {
-                                    vImg.src = vUrl;
-                                    vImg.onload = () => vImg.style.opacity = "1";
-                                }
-                            } catch (e) { console.warn("Missing image", vId); }
+                            const vExt = vData.ImageExt || "jpg";
+                            const vUrl = await getDownloadURL(ref(storage, `${vId}.${vExt}`));
+                            const vImg = document.getElementById(`v-img-${vId}`);
+                            if (vImg) { vImg.src = vUrl; vImg.onload = () => vImg.style.opacity = "1"; }
                         });
                     }
+
+                    document.getElementById("loading").style.display = "none";
+                    document.getElementById("car-content").style.display = "block";
 
                 } else {
                     document.getElementById("loading").innerText = "Car not found!";
@@ -464,50 +372,28 @@
             }
         }
 
-        // --- Function to handle comparison slider dragging ---
         function activateSlider() {
             const slider = document.getElementById('comparison-slider');
             const overlay = document.getElementById('comparison-overlay');
             const handle = document.getElementById('comparison-handle');
-
             if (!slider || !overlay || !handle) return;
-
             let isDragging = false;
-
-            // Helper: move the slider to 'x' position (percentage string)
             function move(xPerc) {
                 handle.style.left = xPerc;
-                overlay.style.clipPath = `inset(0 0 0 ${xPerc})`; // Clip left side of Dud image
+                overlay.style.clipPath = `inset(0 0 0 ${xPerc})`;
             }
-
-            // Main interaction logic
             function handleMove(e) {
                 if (!isDragging) return;
-
                 let rect = slider.getBoundingClientRect();
-                let x = e.clientX || e.touches[0].clientX; // Handles Mouse or Touch
-
-                // Calculate x position relative to the slider
-                let pos = x - rect.left;
-                let perc = (pos / rect.width) * 100;
-
-                // Constraints: Keep within 5% to 95% boundaries
-                if (perc < 5) perc = 5;
-                if (perc > 95) perc = 95;
-
-                // Apply new position
+                let x = e.clientX || (e.touches ? e.touches[0].clientX : 0);
+                let perc = ((x - rect.left) / rect.width) * 100;
+                if (perc < 5) perc = 5; if (perc > 95) perc = 95;
                 move(perc + '%');
             }
-
-            // START (Mouse & Touch)
-            handle.addEventListener('mousedown', (e) => { isDragging = true; e.preventDefault(); });
-            handle.addEventListener('touchstart', (e) => { isDragging = true; });
-
-            // STOP (Mouse & Touch, anywhere on window)
+            handle.addEventListener('mousedown', () => isDragging = true);
+            handle.addEventListener('touchstart', () => isDragging = true);
             window.addEventListener('mouseup', () => isDragging = false);
             window.addEventListener('touchend', () => isDragging = false);
-
-            // MOVE (Mouse & Touch, anywhere on window for smooth dragging)
             window.addEventListener('mousemove', handleMove);
             window.addEventListener('touchmove', handleMove);
         }

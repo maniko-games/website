@@ -1,18 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="preconnect" href="https://firebasestorage.googleapis.com">
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-V3WYKC0X1Q"></script>
-    <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
 
-    gtag('config', 'G-V3WYKC0X1Q');
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-V3WYKC0X1Q');
     </script>
-    
     <meta charset="UTF-8">
-    <title>Treasure Hunt View</title>
+    <link rel="icon" type="image/png" href="https://github.com/maniko-games/website/blob/main/Images/th.png?raw=true">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body style="font-family: sans-serif; text-align: center; padding: 20px; background-color: #f9f9f9;">
 
@@ -30,7 +31,7 @@
 
     <h1 id="page-title">Loading Treasures...</h1>
 
-    <div id="cars-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 20px;"></div>
+    <div id="cars-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; padding: 10px; min-height: 800px; justify-content: center;"></div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -53,12 +54,23 @@
 
         const urlParams = new URLSearchParams(window.location.search);
         const type = urlParams.get('type'); // "TH" or "STH"
-        
+
+        const cleanType = type === "STH" ? "Super Treasure Hunts" : "Treasure Hunts";
+        document.title = `${cleanType} List - Maniko Hot Wheels`;
+
+        const metaDesc = document.querySelector('meta[name="description"]') || document.createElement('meta');
+        metaDesc.name = "description";
+        metaDesc.content = `Complete database of Hot Wheels ${cleanType}. Browse cases and high-res images for 2024-2026.`;
+        if (!document.querySelector('meta[name="description"]')) document.head.appendChild(metaDesc);
+
         const titleElement = document.getElementById("page-title");
         titleElement.innerText = type === "STH" ? "🔥 Super Treasure Hunts" : "💎 Treasure Hunts";
 
         async function loadTreasures() {
             const grid = document.getElementById("cars-grid");
+            gtag('event', 'view_treasure_list', {
+                'treasure_type': type
+            });
             try {
                 const carsRef = collection(db, "mainline-cars");
                 
@@ -94,11 +106,14 @@
                     // 3. Build the card HTML
                     carCard.innerHTML = `
                         <div style="width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 8px; margin-bottom: 10px;">
-                            <img id="img-${carId}" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
-                                style="max-width: 100%; max-height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.3s ease;">
+                            <img id="img-${carId}" 
+                                src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+                                alt="Hot Wheels ${carData.Model}"
+                                loading="lazy"
+                                style="width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.3s ease;">
                         </div>
                         <h3 style="margin: 10px 0; font-size: 1.1em;">${carData.Model}</h3>
-                        <p style="color: #666; margin: 5px 0;"><strong>Case:</strong> ${
+                        <p style="color: #555; margin: 5px 0;"><strong>Case:</strong> ${
                             (Array.isArray(carData.Case) ? carData.Case : [carData.Case]).map(c => 
                             // We use onclick="event.stopPropagation()" so clicking the Case link 
                             // doesn't accidentally trigger the Car Detail link

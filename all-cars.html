@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="preconnect" href="https://firebasestorage.googleapis.com">
+    <title>Sitemap Index</title>
+    <link rel="icon" type="image/png" href="https://github.com/maniko-games/website/blob/main/Images/th.png?raw=true">
+    <meta name="robots" content="noindex, follow">
+</head>
+<body>
+    <h1 style="font-family: sans-serif; font-size: 14px; color: #888;">Index of Maniko Hot Wheels Database</h1>
+    <div id="links"></div>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyAkdQrNE0jswL4xfAEM4uHtHyzPwn2o3bU",
+            authDomain: "maniko-hotwheels.firebaseapp.com",
+            projectId: "maniko-hotwheels",
+            storageBucket: "maniko-hotwheels.firebasestorage.app",
+            messagingSenderId: "534387805003",
+            appId: "1:534387805003:web:9b78747f3538b58194b6ce",
+            measurementId: "G-V3WYKC0X1Q"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        async function generateLinks() {
+            const snap = await getDocs(collection(db, "mainline-cars"));
+            const container = document.getElementById('links');
+
+            snap.forEach(doc => {
+                const data = doc.data();
+                const link = document.createElement('a');
+                link.href = `carinfo.html?id=${doc.id}`;
+                
+                const caseInfo = Array.isArray(data.Case) ? data.Case[0] : data.Case;
+                link.innerText = `${data.Model} (${caseInfo})`;
+                
+                container.appendChild(link);
+                container.appendChild(document.createElement('br'));
+            });
+        }
+        generateLinks();
+    </script>
+</body>
+</html>
