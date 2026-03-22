@@ -52,15 +52,28 @@
         </div>
     </div>
 
-    <h1 id="section-title">Featured Cars</h1>
+    <div style="margin: 20px auto; padding: 20px; background: white; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+        <h3 id="search-title" style="margin-top: 0; color: #333;">Search</h3> <input type="text" id="car-search" oninput="handleSearch()" placeholder="type here..." 
+            style="width: 300px; padding: 15px 20px; border-radius: 30px; border: 2px solid #ddd; font-size: 1.1em; outline: none; box-sizing: border-box; transition: border-color 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+        <div id="search-count" style="margin-top: 10px; font-size: 0.9em; color: #888; display: none;"></div>
+    </div>
 
-    <div id="cars-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 20px; justify-content: center;">
+    <div style="margin: 20px auto; padding: 20px; background: white; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+        <h3 id="featured-title" style="margin-top: 0; color: #333;">Featured Cars</h3>
+
+    <div id="cars-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 320px)); gap: 20px; padding: 20px; justify-content: center; max-width: 1200px; margin: 0 auto;">
         <p id="loading-text">Loading featured cars...</p>
     </div>
 
     <button id="shuffle-btn" onclick="shuffleCars()" style="margin: 20px auto; padding: 12px 30px; border-radius: 30px; border: 2px solid #2196F3; background: white; color: #2196F3; font-weight: bold; cursor: pointer; font-size: 1.1em; transition: all 0.2s;">
         Shuffle Collection 🎲
     </button>
+</div>
+
+
+
+
+
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -108,13 +121,13 @@
 
             // 1. Shuffle the array and pick the first 4
             const shuffled = [...cachedCars].sort(() => 0.5 - Math.random());
-            const selected = shuffled.slice(0, 4);
+            const selected = shuffled.slice(0, 3);
 
-            // 2. Render the 4 cards
+            // 2. Render the 3 cards
             selected.forEach(async (carData) => {
                 const carId = carData.id;
                 const carCard = document.createElement("div");
-                carCard.style = "background: white; border-radius: 12px; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; transition: transform 0.2s;";
+                carCard.style = "background: white; border-radius: 12px; padding: 15px; box-shadow: 0 -4px 10px rgba(0,0,0,0.08), 0 4px 6px rgba(0,0,0,0.05); text-align: center; transition: transform 0.2s; border: 1px solid #f0f0f0;";
                 
                 carCard.innerHTML = `
                     <a href="carinfo.html?id=${carId}" style="text-decoration: none; color: inherit; display: block;">
@@ -134,6 +147,14 @@
                         ${carData["Super TH"] ? 'STH' : (carData["TH"] ? 'TH' : 'Mainline')}
                     </p>
                 `;
+                carCard.onmouseover = () => {
+                carCard.style.transform = "translateY(-5px)";
+                carCard.style.boxShadow = "0 -8px 15px rgba(0,0,0,0.12), 0 8px 10px rgba(0,0,0,0.08)";
+            };
+            carCard.onmouseout = () => {
+                carCard.style.transform = "translateY(0)";
+                carCard.style.boxShadow = "0 -4px 10px rgba(0,0,0,0.08), 0 4px 6px rgba(0,0,0,0.05)";
+            };
                 grid.appendChild(carCard);
 
                 // Fetch image
@@ -166,6 +187,87 @@
             // Redirect to the case page
             window.location.href = `case.html?name=${encodeURIComponent(caseName)}`;
         };
+
+        // --- Search Implementation ---
+        window.handleSearch = function() {
+            const query = document.getElementById('car-search').value.toLowerCase().trim();
+            const featuredTitle = document.getElementById('featured-title'); // LOOK FOR FEATURED TITLE
+            const shuffleBtn = document.getElementById('shuffle-btn');
+            const searchCount = document.getElementById('search-count');
+            const grid = document.getElementById('cars-grid');
+
+            if (query.length === 0) {
+                featuredTitle.innerText = "Featured Cars"; // ONLY CHANGES THE FEATURED TITLE
+                shuffleBtn.style.display = "block";
+                searchCount.style.display = "none";
+                renderRandomSelection();
+                return;
+            }
+
+            featuredTitle.innerText = "Search Results"; // ONLY CHANGES THE FEATURED TITLE
+            shuffleBtn.style.display = "none";
+            
+            const filtered = cachedCars.filter(car => 
+                car.Model.toLowerCase().includes(query)
+            );
+
+            searchCount.style.display = "block";
+            searchCount.innerText = `Found ${filtered.length} matching cars`;
+
+            renderSearchSelection(filtered);
+        };
+
+        // New render function for any list of cars
+        function renderSearchSelection(carsToDisplay) {
+            const grid = document.getElementById("cars-grid");
+            grid.innerHTML = ""; 
+
+            if (carsToDisplay.length === 0) {
+                grid.innerHTML = "<p style='grid-column: 1/-1; color: #999;'>No models found matching that name.</p>";
+                return;
+            }
+
+            carsToDisplay.forEach(async (carData) => {
+                const carId = carData.id;
+                const carCard = document.createElement("div");
+                
+                // Using your "Lifted Card" style with the top shadow
+                carCard.style = "background: white; border-radius: 12px; padding: 15px; box-shadow: 0 -4px 10px rgba(0,0,0,0.08), 0 4px 6px rgba(0,0,0,0.05); text-align: center; transition: transform 0.2s; border: 1px solid #f0f0f0;";
+                
+                carCard.onmouseover = () => carCard.style.transform = "translateY(-5px)";
+                carCard.onmouseout = () => carCard.style.transform = "translateY(0)";
+
+                carCard.innerHTML = `
+                    <a href="carinfo.html?id=${carId}" style="text-decoration: none; color: inherit; display: block;">
+                        <div style="width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 8px; margin-bottom: 10px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);">
+                            <img id="img-search-${carId}" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+                                style="max-width: 100%; max-height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.3s ease;">
+                        </div>
+                        <h3 style="margin: 5px 0; font-size: 1.1em;">${carData.Model}</h3>
+                    </a>
+                    <p style="color: #666; margin: 5px 0; font-size: 0.9em;">
+                        <strong>Case:</strong> ${
+                            (Array.isArray(carData.Case) ? carData.Case : [carData.Case]).map(c => 
+                            `<a href="case.html?name=${encodeURIComponent(c)}" style="color: #2196F3; text-decoration: none;">${c}</a>`).join(', ')
+                        }
+                    </p>
+                    <p style="font-size: 0.9em; font-weight: bold; color: ${carData["Super TH"] ? '#e67e22' : (carData["TH"] ? '#95a5a6' : '#666')}; margin: 5px 0;">
+                        ${carData["Super TH"] ? 'STH' : (carData["TH"] ? 'TH' : 'Mainline')}
+                    </p>
+                `;
+                grid.appendChild(carCard);
+
+                const ext = carData.ImageExt || "jpg";
+                try {
+                    const url = await getDownloadURL(ref(storage, `${carId}.${ext}`));
+                    const imgElement = document.getElementById(`img-search-${carId}`);
+                    if (imgElement) {
+                        imgElement.src = url;
+                        imgElement.onload = () => imgElement.style.opacity = "1";
+                    }
+                } catch (err) { console.warn(`Image missing: ${carId}`); }
+            });
+        }
     </script>
 </body>
 </html>
