@@ -50,6 +50,24 @@
             width: 100%;
             height: auto;
         }
+
+        h1 {
+            /* min size: 1.5rem, scaling size: 5vw, max size: 2.5rem */
+            font-size: clamp(1.5rem, 5vw, 2.5rem); 
+            white-space: nowrap; /* Prevents wrapping no matter what */
+            overflow: hidden;    /* Safety: hide if it still somehow overflows */
+            text-overflow: ellipsis; /* Adds "..." if the screen is impossibly tiny */
+            margin: 20px 0;
+            width: 100%;
+        }
+
+        /* Optional: Make the emoji slightly smaller on very small phones */
+        #page-title {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
     </style>
 </head>
 
