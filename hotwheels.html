@@ -4,8 +4,33 @@
     <meta charset="UTF-8">
     <meta name="google-adsense-account" content="ca-pub-5489037558570680">
     <title>Maniko Hot Wheels Database</title>
+
+    <script async src="https://www.googletagmanager.com/gtag.js?id=G-V3WYKC0X1Q"></script>
+    <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-V3WYKC0X1Q');
+    </script>
 </head>
 <body style="font-family: sans-serif; text-align: center; padding: 20px; background-color: #f9f9f9;">
+    <div id="analytics-notice" style="display: none; background: #fff3cd; color: #856404; padding: 15px; margin: 10px auto; max-width: 600px; border-radius: 12px; border: 1px solid #ffeeba; font-size: 0.9em; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+        <div style="margin-bottom: 10px;">
+            👋 <strong>Support the Database!</strong> I use analytics to see which cars are popular. If you've disabled your blocker, thank you!
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+            <button onclick="grantConsent()" style="background: #28a745; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold;">I allow data collection</button>
+            
+            <button onclick="showHelp()" style="background: #856404; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold;">Still blocked?</button>
+            
+            <button onclick="document.getElementById('analytics-notice').style.display='none'" style="background: transparent; color: #856404; border: 1px solid #856404; padding: 8px 15px; border-radius: 5px; cursor: pointer;">Dismiss</button>
+        </div>
+        
+        <div id="help-text" style="display: none; margin-top: 15px; padding-top: 10px; border-top: 1px dashed #856404; text-align: left; font-size: 0.85em;">
+            If your ad-blocker is off, your browser (like Brave or Firefox) might be blocking it internally. You can check the "Shields" or "Privacy" icon in your URL bar.
+        </div>
+    </div>
 
     <div style="display: flex; justify-content: center; gap: 60px; margin: 20px 0; padding: 10px; background: white; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
         <a href="treasures.html?type=STH" style="text-decoration: none; text-align: center;">
@@ -69,11 +94,6 @@
         Shuffle Collection 🎲
     </button>
 </div>
-
-
-
-
-
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -171,7 +191,16 @@
         }
 
         // Expose the shuffle function to the button
-        window.shuffleCars = () => renderRandomSelection();
+        window.shuffleCars = () => {
+            // Only send the event if gtag actually exists
+            if (typeof gtag === 'function') {
+                gtag('event', 'shuffle_clicked', {
+                    'event_category': 'engagement'
+                });
+            }
+            
+            renderRandomSelection();
+        };
 
         // Initial Load
         loadAndDisplayRandom();
@@ -202,6 +231,14 @@
                 searchCount.style.display = "none";
                 renderRandomSelection();
                 return;
+            }
+
+            if (query.length > 2) {
+                if (typeof gtag === 'function') {
+                    gtag('event', 'shuffle_clicked', {
+                        'event_category': 'engagement'
+                    });
+                }
             }
 
             featuredTitle.innerText = "Search Results"; // ONLY CHANGES THE FEATURED TITLE
@@ -268,6 +305,44 @@
                 } catch (err) { console.warn(`Image missing: ${carId}`); }
             });
         }
-    </script>
+
+        // --- Consolidated Analytics Logic ---
+        window.grantConsent = function() {
+            const notice = document.getElementById('analytics-notice');
+            if (notice) notice.style.display = 'none';
+            
+            // This stops the notice from appearing on future refreshes
+            localStorage.setItem('analyticsConsent', 'true');
+            
+            if (typeof gtag === 'function') {
+                gtag('event', 'consent_granted');
+            }
+        };
+
+        window.showHelp = function() {
+            const help = document.getElementById('help-text');
+            if (help) help.style.display = help.style.display === 'none' ? 'block' : 'none';
+        };
+
+        window.addEventListener('load', () => {
+            // Check if user previously granted consent or dismissed
+            if (localStorage.getItem('analyticsConsent') === 'true') {
+                console.log("Consent previously granted. Notice hidden.");
+                return;
+            }
+
+            // Check for ad-blocker after a short delay
+            setTimeout(() => {
+                const analyticsBlocked = typeof gtag === 'undefined' || !window.google_tag_manager;
+                if (analyticsBlocked) {
+                    const notice = document.getElementById('analytics-notice');
+                    if (notice) {
+                        notice.style.display = 'block';
+                        console.log("Ad-blocker detected. Notice displayed.");
+                    }
+                }
+            }, 1500); 
+        });
+</script>
 </body>
 </html>
