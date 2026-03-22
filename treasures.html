@@ -16,23 +16,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <style>
+        /* 1. Mobile Phone: Force 3 columns */
         #cars-grid {
             display: grid;
-            /* Default for Mobile: 2 columns */
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            padding: 10px;
+            grid-template-columns: repeat(3, 1fr); /* Forces exactly 3 columns */
+            gap: 8px; /* Smaller gap for small screens */
+            padding: 5px;
             min-height: 800px;
             justify-content: center;
         }
 
-        /* Tablet and Laptop adjustment */
-        @media (min-width: 768px) {
+        /* 2. iPad / Tablets: Target 4 columns (Width > 600px) */
+        @media (min-width: 600px) {
             #cars-grid {
-                /* Larger cards for bigger screens */
-                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-                gap: 25px;
+                grid-template-columns: repeat(4, 1fr); /* Forces exactly 4 columns */
+                gap: 15px;
+                padding: 15px;
             }
+        }
+
+        /* 3. Laptops / Desktop: Comfortable grid (Width > 1024px) */
+        @media (min-width: 1024px) {
+            #cars-grid {
+                /* On big screens, let it auto-fill with a nice 220px size */
+                grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+                gap: 20px;
+                max-width: 1200px;
+                margin: 0 auto;
+            }
+        }
+        
+        /* Ensure images don't break the small containers */
+        #cars-grid img {
+            width: 100%;
+            height: auto;
         }
     </style>
 </head>
