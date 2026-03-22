@@ -14,7 +14,29 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/png" href="https://github.com/maniko-games/website/blob/main/Images/th.png?raw=true">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        #cars-grid {
+            display: grid;
+            /* Default for Mobile: 2 columns */
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            padding: 10px;
+            min-height: 800px;
+            justify-content: center;
+        }
+
+        /* Tablet and Laptop adjustment */
+        @media (min-width: 768px) {
+            #cars-grid {
+                /* Larger cards for bigger screens */
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                gap: 25px;
+            }
+        }
+    </style>
 </head>
+
 <body style="font-family: sans-serif; text-align: center; padding: 20px; background-color: #f9f9f9;">
 
     <div style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center;">
@@ -31,7 +53,7 @@
 
     <h1 id="page-title">Loading Treasures...</h1>
 
-    <div id="cars-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 0.3fr)); gap: 15px; padding: 10px; min-height: 800px; justify-content: center;"></div>
+    <div id="cars-grid"></div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
