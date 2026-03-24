@@ -17,42 +17,94 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 
-<body>
-    <div style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center;">
-        <a href="#" onclick="window.history.back(); return false;" 
-        style="text-decoration: none; color: #2196F3; font-weight: bold;">
-        ← Back
-        </a>
-        <span style="color: #ccc;">|</span>
-        <a href="hotwheels.html" 
-        style="text-decoration: none; color: #2196F3; font-weight: bold;">
-        Home
-        </a>
+<header class="global-header">
+    <div class="header-top">
+        <a href="hotwheels.html" class="logo">Maniko HW DB</a>
+        <div class="search-container">
+            <input type="text" id="global-search" placeholder="Search" oninput="handleGlobalSearch()" autocomplete="off">
+            <div id="search-dropdown"></div>
+        </div>
     </div>
+</header>
+<div class="header-spacer"></div>
 
-    <h1 id="case-title">Loading Case...</h1>
-
+<body style="font-family: sans-serif; text-align: center; padding: 0 20px 20px 20px; background-color: #f9f9f9;">
+    <h1 id="case-title" style="margin-top: 20px;">Loading Case...</h1>
     <div id="cars-grid"></div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, collection, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyAkdQrNE0jswL4xfAEM4uHtHyzPwn2o3bU",
-            authDomain: "maniko-hotwheels.firebaseapp.com",
-            projectId: "maniko-hotwheels",
-            storageBucket: "maniko-hotwheels.firebasestorage.app",
-            messagingSenderId: "534387805003",
-            appId: "1:534387805003:web:9b78747f3538b58194b6ce",
-            measurementId: "G-V3WYKC0X1Q"
-        };
+        import { firebaseConfig } from './app.js';
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const storage = getStorage(app);
 
+        // --- GLOBAL SEARCH LOGIC ---
+        let cachedCars = [];
+        let searchDebounceTimer;
+
+        async function preloadSearchData() {
+            try {
+                const querySnapshot = await getDocs(collection(db, "mainline-cars"));
+                cachedCars = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            } catch (e) { console.error("Search preload failed", e); }
+        }
+        preloadSearchData();
+
+        window.handleGlobalSearch = function() {
+            clearTimeout(searchDebounceTimer);
+            const queryVal = document.getElementById('global-search').value.toLowerCase().trim();
+            const dropdown = document.getElementById('search-dropdown');
+            if (queryVal.length < 2) { dropdown.style.display = 'none'; return; }
+
+            searchDebounceTimer = setTimeout(() => {
+                if (cachedCars.length === 0) return;
+                const matches = cachedCars.filter(car => car.Model.toLowerCase().includes(queryVal));
+                matches.sort((a, b) => a.Model.toLowerCase().localeCompare(b.Model.toLowerCase()));
+                renderSuggestions(matches);
+            }, 200);
+        };
+
+        function renderSuggestions(matches) {
+            const dropdown = document.getElementById('search-dropdown');
+            dropdown.innerHTML = "";
+            if (matches.length === 0) { dropdown.style.display = 'none'; return; }
+
+            matches.forEach(car => {
+                const div = document.createElement("div");
+                div.className = "search-suggestion";
+                const type = car["Super TH"] ? "STH" : (car["TH"] ? "TH" : "Mainline");
+                const caseName = Array.isArray(car.Case) ? car.Case[0] : car.Case;
+                div.innerHTML = `<span class="suggestion-type">${type}</span>${car.Model} <small style="color: #bbb; margin-left: 8px;">(${caseName})</small>`;
+                div.onclick = () => {
+                    dropdown.style.display = 'none';
+                    window.location.href = `carinfo.html?id=${car.id}`;
+                };
+                dropdown.appendChild(div);
+            });
+            dropdown.style.display = 'block';
+        }
+
+        window.addEventListener('click', (e) => {
+            if (!e.target.matches('#global-search')) {
+                const dd = document.getElementById('search-dropdown');
+                const searchInput = document.getElementById('global-search');
+                if (dd) dd.style.display = 'none';
+                if (searchInput) searchInput.value = ""; 
+            }
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === "Escape") {
+                document.getElementById('search-dropdown').style.display = 'none';
+                document.getElementById('global-search').value = "";
+            }
+        });
+
+        // --- EXISTING CASE LOGIC ---
         const urlParams = new URLSearchParams(window.location.search);
         const caseName = urlParams.get('name');
         const cleanCase = caseName ? caseName : "Hot Wheels";

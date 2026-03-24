@@ -2,8 +2,10 @@
 body {
     font-family: sans-serif;
     text-align: center;
-    padding: 20px;
     background-color: #f9f9f9;
+    padding: 0 20px 20px 20px;
+    padding-top: 0 !important;
+    margin-top: 0 !important;
 }
 
 #car-image {
@@ -43,7 +45,7 @@ body {
 
 #cars-grid h3 {
     margin: 5px 0;
-    font-size: 1em;
+    font-size: 1.25em;
     line-height: 1.1;
     min-height: 2.4em;
     max-height: 2.4em;
@@ -71,7 +73,7 @@ body {
         gap: 15px;
         padding: 15px;
     }
-    #cars-grid h3 { font-size: 0.9em; } /* Increased from 0.72em to match Ford look */
+    #cars-grid h3 { font-size: 1.25em; }
     #cars-grid p { font-size: 0.96em; }
 }
 
@@ -176,4 +178,97 @@ h1 {
     width: 100%;
     overflow: hidden;
     clip-path: inset(0 0 0 80%);
+}
+
+/* style.css additions */
+.global-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background: white;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    z-index: 1000;
+    padding: 10px 0;
+}
+
+.header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 15px;
+    gap: 15px;
+}
+
+.logo {
+    font-weight: bold;
+    text-decoration: none;
+    color: #2196F3;
+    font-size: 1.2em;
+    white-space: nowrap;
+}
+
+.search-container {
+    flex-grow: 1;
+}
+
+#global-search {
+    width: 100%;
+    padding: 10px 15px;
+    border-radius: 20px;
+    border: 1px solid #ddd;
+    font-size: 16px; /* 16px prevents iOS from auto-zooming on tap */
+    outline: none;
+}
+
+#global-search:focus {
+    border-color: #2196F3;
+}
+
+.header-spacer {
+    height: 55px; /* Adjust based on your header height */
+}
+
+.search-container {
+    position: relative; /* Anchor for the dropdown */
+}
+
+#search-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 16px;
+    width: calc(100% - 32px);
+    border-top: none;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 0 0 15px 15px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    z-index: 2000;
+    max-height: 400px;
+    overflow-y: auto;
+    display: none; /* Hidden by default */
+    text-align: left;
+}
+
+.search-suggestion {
+    padding: 12px 15px;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 0.9em;
+    color: #333;
+    transition: background 0.2s;
+}
+
+.search-suggestion:hover {
+    background-color: #f1f8ff;
+    color: #2196F3;
+}
+
+.suggestion-type {
+    float: right;
+    font-size: 0.75em;
+    color: #999;
+    font-weight: bold;
 }

@@ -14,7 +14,7 @@
 
     <meta charset="UTF-8">
     <meta name="google-adsense-account" content="ca-pub-5489037558570680">
-    <title>Maniko Hot Wheels Database</title>
+    <title>Maniko Hot Wheels Database - STH, TH & Mainline Collector Guide</title>
     <link rel="icon" type="image/png" href="https://github.com/maniko-games/website/blob/main/Images/th.png?raw=true">
 
     <meta name="description" content="The ultimate Maniko Hot Wheels Database. Browse Super Treasure Hunts, Treasure Hunts, and 2024-2026 Mainline cases with high-res photos and comparison tools.">
@@ -28,8 +28,28 @@
     <meta property="og:url" content="https://maniko.games/hotwheels.html">
 </head>
 
+<header class="global-header">
+    <div class="header-top">
+        <a href="hotwheels.html" class="logo">Maniko HW DB</a>
+        <div class="search-container">
+            <input type="text" id="global-search" placeholder="Search" oninput="handleGlobalSearch()">
+        </div>
+    </div>
+</header>
+<div class="header-spacer"></div>
+
 <body style="font-family: sans-serif; text-align: center; padding: 20px; background-color: #f9f9f9;">
-    <h1>Maniko Hot Wheels Diecast Database</h1>
+    
+    <div style="margin: -5px auto; padding: 20px; background: white; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+        <h2 id="featured-title" >Featured Cars</h2>
+
+    <div id="cars-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; padding: 10px; justify-content: center; min-height: 400px; max-width: 1200px; margin: 0 auto;">
+        <p id="loading-text">Loading featured cars...</p>
+    </div>
+
+    <button id="shuffle-btn" onclick="shuffleCars()" style="margin: 20px auto; padding: 12px 30px; border-radius: 30px; border: 2px solid #2196F3; background: white; color: #2196F3; font-weight: bold; cursor: pointer; font-size: 1.1em; transition: all 0.2s;">
+        Shuffle Collection 🎲
+    </button>
 
     <div id="analytics-notice" style="display: none; background: #fff3cd; color: #856404; padding: 15px; margin: 10px auto; max-width: 600px; border-radius: 12px; border: 1px solid #ffeeba; font-size: 0.9em; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
         <div style="margin-bottom: 10px;">
@@ -47,8 +67,45 @@
             If your ad-blocker is off, your browser (like Brave or Firefox) might be blocking it internally. You can check the "Shields" or "Privacy" icon in your URL bar.
         </div>
     </div>
+</div>
 
-    <div style="display: flex; justify-content: center; gap: 60px; margin: 20px 0; padding: 10px; background: white; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+<div style="margin: 20px auto; padding: 20px; background: white; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+    <h2>Case Jump</h2>
+    <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+        
+        <select id="jump-year" style="padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 1em; cursor: pointer; margin: 5px;">
+            <option value="2026">2026</option>
+            <option value="2025">2025</option>
+            <option value="2024">2024</option>
+        </select>
+
+        <select id="jump-case" style="padding: 10px; border-radius: 8px; border: 1px solid #ddd; font-size: 1em; cursor: pointer; margin: 5px;">
+            <option value="A">Case A</option>
+            <option value="B">Case B</option>
+            <option value="C">Case C</option>
+            <option value="D">Case D</option>
+            <option value="E">Case E</option>
+            <option value="F">Case F</option>
+            <option value="G">Case G</option>
+            <option value="H">Case H</option>
+            <option value="J">Case J</option>
+            <option value="K">Case K</option>
+            <option value="L">Case L</option>
+            <option value="M">Case M</option>
+            <option value="N">Case N</option>
+            <option value="P">Case P</option>
+            <option value="Q">Case Q</option>
+        </select>
+
+        <button onclick="jumpToCase()" style="padding: 10px 25px; border-radius: 8px; border: none; background: #2196F3; color: white; font-weight: bold; cursor: pointer; transition: background 0.2s;">
+            Open
+        </button>
+    </div>
+</div>
+
+<div style="margin: 20px auto; padding: 20px; background: white; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+    <h2>Collection Jump</h2>
+    <div style="display: flex; justify-content: center; gap: 60px; margin: 20px 0; padding: 10px; background: white; border-radius: 15px;">
         <a href="treasures.html?type=STH" style="text-decoration: none; text-align: center;">
             <img src="https://github.com/maniko-games/website/blob/main/Images/sth.webp?raw=true" alt="STH" style="height: 120px; display: block; margin: auto;">
             <span style="font-size: 1em; color: #ff0000; font-weight: bold;">Super Treasure Hunts</span>
@@ -58,306 +115,167 @@
             <span style="font-size: 1em; color: #000000; font-weight: bold;">Treasure Hunts</span>
         </a>
     </div>
-
-    <div style="margin: 20px auto; padding: 20px; background: white; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-        <h2>Quick Case Jump</h2>
-        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-            
-            <select id="jump-year" style="padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 1em; cursor: pointer; margin: 5px;">
-                <option value="2026">2026</option>
-                <option value="2025">2025</option>
-                <option value="2024">2024</option>
-            </select>
-
-            <select id="jump-case" style="padding: 10px; border-radius: 8px; border: 1px solid #ddd; font-size: 1em; cursor: pointer; margin: 5px;">
-                <option value="A">Case A</option>
-                <option value="B">Case B</option>
-                <option value="C">Case C</option>
-                <option value="D">Case D</option>
-                <option value="E">Case E</option>
-                <option value="F">Case F</option>
-                <option value="G">Case G</option>
-                <option value="H">Case H</option>
-                <option value="J">Case J</option>
-                <option value="K">Case K</option>
-                <option value="L">Case L</option>
-                <option value="M">Case M</option>
-                <option value="N">Case N</option>
-                <option value="P">Case P</option>
-                <option value="Q">Case Q</option>
-            </select>
-
-            <button onclick="jumpToCase()" style="padding: 10px 25px; border-radius: 8px; border: none; background: #2196F3; color: white; font-weight: bold; cursor: pointer; transition: background 0.2s;">
-                Open
-            </button>
-        </div>
-    </div>
-
-    <div style="margin: 20px auto; padding: 20px; background: white; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-        <h2 id="search-title">Search</h2>
-        <input type="text" id="car-search" oninput="handleSearch()" placeholder="type here..." 
-            style="width: 300px; padding: 15px 20px; border-radius: 30px; border: 2px solid #ddd; font-size: 1.1em; outline: none; box-sizing: border-box; transition: border-color 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-        <div id="search-count" style="margin-top: 10px; font-size: 0.9em; color: #888; display: none;"></div>
-    </div>
-
-    <div style="margin: 20px auto; padding: 20px; background: white; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-        <h2 id="featured-title">Featured Cars</h2>
-
-    <div id="cars-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; padding: 10px; justify-content: center; min-height: 400px; max-width: 1200px; margin: 0 auto;">
-        <p id="loading-text">Loading featured cars...</p>
-    </div>
-
-    <button id="shuffle-btn" onclick="shuffleCars()" style="margin: 20px auto; padding: 12px 30px; border-radius: 30px; border: 2px solid #2196F3; background: white; color: #2196F3; font-weight: bold; cursor: pointer; font-size: 1.1em; transition: all 0.2s;">
-        Shuffle Collection 🎲
-    </button>
 </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
-        import { getFirestore, collection, query, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+    import { getFirestore, collection, query, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { firebaseConfig, adjustFontSizes } from './app.js';
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyAkdQrNE0jswL4xfAEM4uHtHyzPwn2o3bU",
-            authDomain: "maniko-hotwheels.firebaseapp.com",
-            projectId: "maniko-hotwheels",
-            storageBucket: "maniko-hotwheels.firebasestorage.app",
-            messagingSenderId: "534387805003",
-            appId: "1:534387805003:web:9b78747f3538b58194b6ce",
-            measurementId: "G-V3WYKC0X1Q"
-        };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const storage = getStorage(app);
+    let cachedCars = [];
 
-        let cachedCars = []; // Store cars so shuffle is fast
-
-        async function loadAndDisplayRandom() {
-            const grid = document.getElementById("cars-grid");
+    // --- 1. INITIAL LOAD LOGIC ---
+    async function loadAndDisplayRandom() {
+        const grid = document.getElementById("cars-grid");
+        try {
+            if (cachedCars.length === 0) {
+                const querySnapshot = await getDocs(query(collection(db, "mainline-cars")));
+                cachedCars = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            }
             
-            try {
-                // Only fetch from Firebase if we don't have the cars yet
-                if (cachedCars.length === 0) {
-                    grid.innerHTML = "<p>Fetching collection...</p>";
-                    const querySnapshot = await getDocs(query(collection(db, "mainline-cars")));
-                    cachedCars = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                }
-
+            // Handle search from URL if present, otherwise show random
+            const urlParams = new URLSearchParams(window.location.search);
+            const searchQuery = urlParams.get('search');
+            if (searchQuery) {
+                document.getElementById('global-search').value = searchQuery;
+                window.handleSearch();
+            } else {
                 renderRandomSelection();
-
-            } catch (error) {
-                console.error("Error:", error);
-                grid.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
             }
+        } catch (error) {
+            console.error("Firebase Error:", error);
         }
+    }
 
-        function renderRandomSelection() {
-            const grid = document.getElementById("cars-grid");
-            grid.innerHTML = ""; // Clear current cars
+    function renderRandomSelection() {
+        const grid = document.getElementById("cars-grid");
+        grid.innerHTML = ""; 
+        const selected = [...cachedCars].sort(() => 0.5 - Math.random()).slice(0, 3);
+        window.renderSearchSelection(selected); // Reuse the global render function
+    }
 
-            // 1. Shuffle the array and pick the first 4
-            const shuffled = [...cachedCars].sort(() => 0.5 - Math.random());
-            const selected = shuffled.slice(0, 3);
-
-            // 2. Render the 3 cards
-            selected.forEach(async (carData) => {
-                const carId = carData.id;
-                const carCard = document.createElement("a");
-                carCard.href = `carinfo.html?id=${carId}`;
-                carCard.className = "car-item";
-                
-                carCard.innerHTML = `
-                    <div style="width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 8px; margin-bottom: 10px;">
-                        <img id="img-${carId}" 
-                            src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
-                            alt="Hot Wheels ${carData.Model}"
-                            loading="lazy"
-                            style="width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.3s ease;">
-                    </div>
-                    <h3>${carData.Model}</h3>
-                    <p><strong>Case:</strong> ${
-                        (Array.isArray(carData.Case) ? carData.Case : [carData.Case]).map(c => 
-                        `<span style="color: #2196F3; text-decoration: underline;" 
-                            onclick="event.preventDefault(); event.stopPropagation(); window.location.href='case.html?name=${encodeURIComponent(c)}'">
-                            ${c}
-                        </span>`).join(', ')
-                    }</p>
-                    <p style="font-weight: bold; color: ${carData["Super TH"] ? '#e67e22' : (carData["TH"] ? '#95a5a6' : '#555')};">
-                        ${carData["Super TH"] ? 'STH' : (carData["TH"] ? 'TH' : 'Mainline')}
-                    </p>
-                `;
-                grid.appendChild(carCard);
-
-                // Fetch image
-                const ext = carData.ImageExt || "jpg";
-                try {
-                    const url = await getDownloadURL(ref(storage, `${carId}.${ext}`));
-                    const imgElement = document.getElementById(`img-${carId}`);
-                    if (imgElement) {
-                        imgElement.src = url;
-                        imgElement.onload = () => imgElement.style.opacity = "1";
-                    }
-                } catch (err) { console.warn(`Missing image for ${carId}`); }
-            });
+    
+    window.handleGlobalSearch = function() {
+        const queryVal = document.getElementById('global-search').value.toLowerCase().trim();
+        
+        // Check if we are on the home page
+        if (window.location.pathname.includes('hotwheels.html')) {
+            // Run the home page search logic directly
+            window.handleSearch(queryVal); 
+        } else if (queryVal.length > 2) {
+            // Redirect home if on another page
+            window.location.href = `hotwheels.html?search=${encodeURIComponent(queryVal)}`;
         }
+    };
 
-        // Expose the shuffle function to the button
-        window.shuffleCars = () => {
-            // Only send the event if gtag actually exists
-            if (typeof gtag === 'function') {
-                gtag('event', 'shuffle_clicked', {
-                    'event_category': 'engagement'
-                });
-            }
-            
+    window.handleSearch = function(externalQuery = null) {
+        // If a query was passed in (from Global Search), use it. 
+        // Otherwise, try to grab it from the global search input.
+        const queryVal = externalQuery !== null ? externalQuery : document.getElementById('global-search').value.toLowerCase().trim();
+        
+        const featuredTitle = document.getElementById('featured-title');
+        const shuffleBtn = document.getElementById('shuffle-btn');
+        const grid = document.getElementById('cars-grid');
+
+        // If search is empty, show featured
+        if (queryVal.length === 0) {
+            featuredTitle.innerText = "Featured Cars";
+            shuffleBtn.style.display = "block";
             renderRandomSelection();
-        };
-
-        // Initial Load
-        loadAndDisplayRandom();
-
-        // Add 'window.jumpToCase =' at the beginning to make it public
-        window.jumpToCase = function() {
-            const year = document.getElementById('jump-year').value;
-            const caseLetter = document.getElementById('jump-case').value;
-            
-            // This matches your format: Case A - 2026
-            const caseName = `${caseLetter} - ${year}`;
-            
-            // Redirect to the case page
-            window.location.href = `case.html?name=${encodeURIComponent(caseName)}`;
-        };
-
-        // --- Search Implementation ---
-        window.handleSearch = function() {
-            const query = document.getElementById('car-search').value.toLowerCase().trim();
-            const featuredTitle = document.getElementById('featured-title'); // LOOK FOR FEATURED TITLE
-            const shuffleBtn = document.getElementById('shuffle-btn');
-            const searchCount = document.getElementById('search-count');
-            const grid = document.getElementById('cars-grid');
-
-            if (query.length === 0) {
-                featuredTitle.innerText = "Featured Cars"; // ONLY CHANGES THE FEATURED TITLE
-                shuffleBtn.style.display = "block";
-                searchCount.style.display = "none";
-                renderRandomSelection();
-                return;
-            }
-
-            if (query.length > 2) {
-                if (typeof gtag === 'function') {
-                    gtag('event', 'shuffle_clicked', {
-                        'event_category': 'engagement'
-                    });
-                }
-            }
-
-            featuredTitle.innerText = "Search Results"; // ONLY CHANGES THE FEATURED TITLE
-            shuffleBtn.style.display = "none";
-            
-            const filtered = cachedCars.filter(car => 
-                car.Model.toLowerCase().includes(query)
-            );
-
-            searchCount.style.display = "block";
-            searchCount.innerText = `Found ${filtered.length} matching cars`;
-
-            renderSearchSelection(filtered);
-        };
-
-        // New render function for any list of cars
-        function renderSearchSelection(carsToDisplay) {
-            const grid = document.getElementById("cars-grid");
-            grid.innerHTML = ""; 
-
-            if (carsToDisplay.length === 0) {
-                grid.innerHTML = "<p style='grid-column: 1/-1; color: #999;'>No models found matching that name.</p>";
-                return;
-            }
-
-            carsToDisplay.forEach(async (carData) => {
-                const carId = carData.id;
-                const carCard = document.createElement("div");
-                
-                // Using your "Lifted Card" style with the top shadow
-                carCard.style = "background: white; border-radius: 12px; padding: 15px; box-shadow: 0 -4px 10px rgba(0,0,0,0.08), 0 4px 6px rgba(0,0,0,0.05); text-align: center; transition: transform 0.2s; border: 1px solid #f0f0f0;";
-                
-                carCard.onmouseover = () => carCard.style.transform = "translateY(-5px)";
-                carCard.onmouseout = () => carCard.style.transform = "translateY(0)";
-
-                carCard.innerHTML = `
-                    <a href="carinfo.html?id=${carId}" style="text-decoration: none; color: inherit; display: block;">
-                        <div style="width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 8px; margin-bottom: 10px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);">
-                            <img id="img-search-${carId}"
-                                src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
-                                alt="Hot Wheels ${carData.Model}"
-                                loading="lazy"
-                                style="width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.3s ease;">
-                        </div>
-                        <h3 style="margin: 5px 0; font-size: 1.1em;">${carData.Model}</h3>
-                    </a>
-                    <p style="color: #555; margin: 5px 0; font-size: 0.9em;">
-                        <strong>Case:</strong> ${
-                            (Array.isArray(carData.Case) ? carData.Case : [carData.Case]).map(c => 
-                            `<a href="case.html?name=${encodeURIComponent(c)}" style="color: #2196F3; text-decoration: none;">${c}</a>`).join(', ')
-                        }
-                    </p>
-                    <p style="font-size: 0.9em; font-weight: bold; color: ${carData["Super TH"] ? '#e67e22' : (carData["TH"] ? '#95a5a6' : '#555')}; margin: 5px 0;">
-                        ${carData["Super TH"] ? 'STH' : (carData["TH"] ? 'TH' : 'Mainline')}
-                    </p>
-                `;
-                grid.appendChild(carCard);
-
-                const ext = carData.ImageExt || "jpg";
-                try {
-                    const url = await getDownloadURL(ref(storage, `${carId}.${ext}`));
-                    const imgElement = document.getElementById(`img-search-${carId}`);
-                    if (imgElement) {
-                        imgElement.src = url;
-                        imgElement.onload = () => imgElement.style.opacity = "1";
-                    }
-                } catch (err) { console.warn(`Image missing: ${carId}`); }
-            });
+            return;
         }
 
-        // --- Consolidated Analytics Logic ---
-        window.grantConsent = function() {
-            const notice = document.getElementById('analytics-notice');
-            if (notice) notice.style.display = 'none';
+        // Update UI for search mode
+        featuredTitle.innerText = "Search Results";
+        shuffleBtn.style.display = "none";
+        
+        const filtered = cachedCars.filter(car => 
+            car.Model.toLowerCase().includes(queryVal)
+        );
+
+        window.renderSearchSelection(filtered);
+    };
+
+    window.renderSearchSelection = async function(carsToDisplay) {
+        const grid = document.getElementById("cars-grid");
+        grid.innerHTML = ""; 
+
+        if (carsToDisplay.length === 0) {
+            grid.innerHTML = "<p style='grid-column: 1/-1; color: #999;'>No models found.</p>";
+            return;
+        }
+
+        const promises = carsToDisplay.map(async (carData) => {
+            const carId = carData.id;
             
-            // This stops the notice from appearing on future refreshes
-            localStorage.setItem('analyticsConsent', 'true');
+            // Determine Type Label and Color
+            let typeLabel = carData["Super TH"] ? "Super Treasure Hunt" : (carData["TH"] ? "Treasure Hunt" : "Mainline");
+            let typeColor = carData["Super TH"] ? "#e67e22" : (carData["TH"] ? "#95a5a6" : "#555");
+
+            const carCard = document.createElement("a");
+            carCard.href = `carinfo.html?id=${carId}`;
+            carCard.className = "car-item";
             
-            if (typeof gtag === 'function') {
-                gtag('event', 'consent_granted');
-            }
-        };
+            carCard.innerHTML = `
+                <div style="width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 8px; margin-bottom: 10px;">
+                    <img id="img-search-${carId}" 
+                        src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" 
+                        style="width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.3s ease;">
+                </div>
+                <h3>${carData.Model}</h3>
+                <p><strong>Case:</strong> ${
+                    (Array.isArray(carData.Case) ? carData.Case : [carData.Case]).map(c => 
+                    `<span style="color: #2196F3; text-decoration: underline;" 
+                        onclick="event.preventDefault(); event.stopPropagation(); window.location.href='case.html?name=${encodeURIComponent(c)}'">
+                        ${c}
+                    </span>`).join(', ')
+                }</p>
+                <p style="font-weight: bold; color: ${typeColor}; margin-top: 5px;">${typeLabel}</p>
+            `;
+            grid.appendChild(carCard);
 
-        window.showHelp = function() {
-            const help = document.getElementById('help-text');
-            if (help) help.style.display = help.style.display === 'none' ? 'block' : 'none';
-        };
-
-        window.addEventListener('load', () => {
-            // Check if user previously granted consent or dismissed
-            if (localStorage.getItem('analyticsConsent') === 'true') {
-                console.log("Consent previously granted. Notice hidden.");
-                return;
-            }
-
-            // Check for ad-blocker after a short delay
-            setTimeout(() => {
-                const analyticsBlocked = typeof gtag === 'undefined' || !window.google_tag_manager;
-                if (analyticsBlocked) {
-                    const notice = document.getElementById('analytics-notice');
-                    if (notice) {
-                        notice.style.display = 'block';
-                        console.log("Ad-blocker detected. Notice displayed.");
-                    }
-                }
-            }, 1500); 
+            const ext = carData.ImageExt || "jpg";
+            try {
+                const url = await getDownloadURL(ref(storage, `${carId}.${ext}`));
+                const img = document.getElementById(`img-search-${carId}`);
+                if (img) { img.src = url; img.onload = () => img.style.opacity = "1"; }
+            } catch (err) {}
         });
+
+        await Promise.all(promises);
+        adjustFontSizes(); 
+    };
+
+    // --- 3. OTHER UI FUNCTIONS ---
+
+    window.shuffleCars = () => {
+        if (typeof gtag === 'function') gtag('event', 'shuffle_clicked');
+        renderRandomSelection();
+        setTimeout(adjustFontSizes, 100);
+    };
+
+    window.jumpToCase = function() {
+        const year = document.getElementById('jump-year').value;
+        const caseLetter = document.getElementById('jump-case').value;
+        window.location.href = `case.html?name=${encodeURIComponent(caseLetter + ' - ' + year)}`;
+    };
+
+    window.grantConsent = () => {
+        document.getElementById('analytics-notice').style.display = 'none';
+        localStorage.setItem('analyticsConsent', 'true');
+    };
+
+    window.showHelp = () => {
+        const h = document.getElementById('help-text');
+        h.style.display = h.style.display === 'none' ? 'block' : 'none';
+    };
+
+    loadAndDisplayRandom();
 </script>
 </body>
 </html>
