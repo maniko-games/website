@@ -15,7 +15,7 @@
     <meta charset="UTF-8">
     <meta name="google-adsense-account" content="ca-pub-5489037558570680">
     <title>Maniko Hot Wheels Database - STH, TH & Mainline Collector Guide</title>
-    <link rel="icon" type="image/png" href="https://github.com/maniko-games/website/blob/main/Images/th.png?raw=true">
+    <link rel="icon" type="image/png" href="https://github.com/maniko-games/website/blob/main/Images/sth.webp?raw=true">
 
     <meta name="description" content="The ultimate Maniko Hot Wheels Database. Browse Super Treasure Hunts, Treasure Hunts, and 2024-2026 Mainline cases with high-res photos and comparison tools.">
     <meta name="keywords" content="Hot Wheels, Diecast, STH, Super Treasure Hunt, Treasure Hunt, Hot Wheels Database, 2025 Hot Wheels, 2026 Hot Wheels">
@@ -225,7 +225,8 @@
                 <div style="width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 8px; margin-bottom: 10px;">
                     <img id="img-search-${carId}" 
                         src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" 
-                        style="width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.3s ease;">
+                        style="width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.3s ease;"
+                        loading="lazy">
                 </div>
                 <h3>${carData.Model}</h3>
                 <p><strong>Case:</strong> ${
@@ -241,13 +242,19 @@
 
             const ext = carData.ImageExt || "jpg";
             try {
-                const url = await getDownloadURL(ref(storage, `${carId}.${ext}`));
-                const img = document.getElementById(`img-search-${carId}`);
-                if (img) { img.src = url; img.onload = () => img.style.opacity = "1"; }
+                const bucketName = "maniko-hotwheels.firebasestorage.app";
+                const url = `https://firebasestorage.googleapis.com/v0/b/maniko-hotwheels.firebasestorage.app/o/${carId}.${ext}?alt=media`;
+
+                const imgElement = document.getElementById(`img-search-${carId}`);
+                if (imgElement) {
+                    // Set the source IMMEDIATELY, don't wait for anything else
+                    imgElement.src = url;
+                    imgElement.onload = () => imgElement.style.opacity = "1";
+                }
             } catch (err) {}
         });
 
-        await Promise.all(promises);
+        //await Promise.all(promises);
         adjustFontSizes(); 
     };
 

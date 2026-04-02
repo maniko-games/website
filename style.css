@@ -1,4 +1,35 @@
 /* style.css */
+
+/* --- Admin Specific Styles --- */
+.admin-search-results {
+    display: none; 
+    background: #fffde7; 
+    border: 1px dashed #ffd600; 
+    border-radius: 8px; 
+    padding: 10px; 
+    margin-top: 5px;
+    /* Allow magnified images to "pop out" of this box */
+    overflow: visible !important; 
+}
+
+.admin-prev-img {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    cursor: zoom-in;
+    position: relative;
+    z-index: 1;
+    /* Grows from the right side so it stays inside your 500px window */
+    transform-origin: right center; 
+}
+
+.admin-prev-img:hover {
+    /* Precise 3x growth (50px -> 250px) */
+    transform: scale(5); 
+    z-index: 9999;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+    background: white !important;
+    border: 1px solid #ddd;
+}
+
 body {
     font-family: sans-serif;
     text-align: center;
