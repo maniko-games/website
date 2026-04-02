@@ -210,9 +210,12 @@
             return;
         }
 
-        const promises = carsToDisplay.map(async (carData) => {
+        carsToDisplay.forEach((carData) => {
             const carId = carData.id;
             
+            // 1. DEFINE ext FIRST so the HTML can use it
+            const ext = carData.ImageExt || "jpg";
+
             // Determine Type Label and Color
             let typeLabel = carData["Super TH"] ? "Super Treasure Hunt" : (carData["TH"] ? "Treasure Hunt" : "Mainline");
             let typeColor = carData["Super TH"] ? "#e67e22" : (carData["TH"] ? "#95a5a6" : "#555");
@@ -221,11 +224,12 @@
             carCard.href = `carinfo.html?id=${carId}`;
             carCard.className = "car-item";
             
+            // 2. USE local folder path: Cars/filename.ext
             carCard.innerHTML = `
                 <div style="width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 8px; margin-bottom: 10px;">
                     <img id="img-search-${carId}" 
-                        src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" 
-                        style="width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.3s ease;"
+                        src="Cars/${carId}.${ext}" 
+                        style="width: 100%; height: 100%; object-fit: contain;"
                         loading="lazy">
                 </div>
                 <h3>${carData.Model}</h3>
@@ -239,22 +243,8 @@
                 <p style="font-weight: bold; color: ${typeColor}; margin-top: 5px;">${typeLabel}</p>
             `;
             grid.appendChild(carCard);
-
-            const ext = carData.ImageExt || "jpg";
-            try {
-                const bucketName = "maniko-hotwheels.firebasestorage.app";
-                const url = `https://firebasestorage.googleapis.com/v0/b/maniko-hotwheels.firebasestorage.app/o/${carId}.${ext}?alt=media`;
-
-                const imgElement = document.getElementById(`img-search-${carId}`);
-                if (imgElement) {
-                    // Set the source IMMEDIATELY, don't wait for anything else
-                    imgElement.src = url;
-                    imgElement.onload = () => imgElement.style.opacity = "1";
-                }
-            } catch (err) {}
         });
 
-        //await Promise.all(promises);
         adjustFontSizes(); 
     };
 
