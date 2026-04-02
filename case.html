@@ -34,38 +34,111 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-        import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { firebaseConfig } from './app.js';
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-        const storage = getStorage(app);
 
-        // --- GLOBAL SEARCH LOGIC ---
+        // --- SHARED DATA ---
         let cachedCars = [];
-        let searchDebounceTimer;
+        const urlParams = new URLSearchParams(window.location.search);
+        const caseName = urlParams.get('name'); // e.g. "D - 2026"
+        const cleanCase = caseName || "Hot Wheels";
+        
+        document.title = `${cleanCase} List - Maniko Hot Wheels Database`;
+        document.getElementById("case-title").innerText = "Case: " + cleanCase;
 
-        async function preloadSearchData() {
+        // --- 1. THE LOAD & FILTER LOGIC ---
+        async function startPage() {
+            const grid = document.getElementById("cars-grid");
+            grid.innerHTML = "<p>Loading cars...</p>";
+
             try {
-                const querySnapshot = await getDocs(collection(db, "mainline-cars"));
-                cachedCars = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            } catch (e) { console.error("Search preload failed", e); }
-        }
-        preloadSearchData();
+                // Fetch everything once (or use cache if search already loaded it)
+                if (cachedCars.length === 0) {
+                    const querySnapshot = await getDocs(collection(db, "mainline-cars"));
+                    cachedCars = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                }
 
+                // Filter for this specific case locally (Instant)
+                const matches = cachedCars.filter(car => {
+                    const cases = Array.isArray(car.Case) ? car.Case : [car.Case];
+                    return cases.includes(caseName);
+                });
+
+                // Sort: STH first, then TH, then Alpha
+                matches.sort((a, b) => {
+                    if (b["Super TH"] !== a["Super TH"]) return b["Super TH"] - a["Super TH"];
+                    if (b["TH"] !== a["TH"]) return b["TH"] - a["TH"];
+                    return a.Model.localeCompare(b.Model);
+                });
+
+                renderGrid(matches);
+            } catch (e) {
+                console.error(e);
+                grid.innerHTML = "<p>Error loading collection.</p>";
+            }
+        }
+
+        // --- 2. THE RENDER LOGIC ---
+        function renderGrid(cars) {
+            const grid = document.getElementById("cars-grid");
+            grid.innerHTML = "";
+
+            if (cars.length === 0) {
+                grid.innerHTML = "<p>No cars found for this case.</p>";
+                return;
+            }
+
+            cars.forEach(carData => {
+                const carId = carData.id;
+                const ext = carData.ImageExt || "jpg";
+                let typeLabel = carData["Super TH"] ? "STH" : (carData["TH"] ? "TH" : "Mainline");
+                let typeColor = carData["Super TH"] ? "#e67e22" : (carData["TH"] ? "#95a5a6" : "#555");
+
+                const carCard = document.createElement("a");
+                carCard.href = `carinfo.html?id=${carId}`;
+                carCard.className = "car-item"; // Use your CSS class for hover effects
+
+                carCard.innerHTML = `
+                    <div style="width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 8px; margin-bottom: 10px;">
+                        <img src="Cars/${carId}.${ext}" 
+                            loading="lazy" 
+                            style="width: 100%; height: 100%; object-fit: contain;">
+                    </div>
+                    <h3>${carData.Model}</h3>
+                    <p style="font-weight: bold; color: ${typeColor};">${typeLabel}</p>
+                `;
+                grid.appendChild(carCard);
+            });
+
+            // Shrink long text to fit
+            setTimeout(adjustFontSizes, 50);
+        }
+
+        // --- 3. UTILITIES (Search/Font) ---
+        function adjustFontSizes() {
+            document.querySelectorAll('#cars-grid h3').forEach(title => {
+                let fontSize = 1.0;
+                while (title.scrollHeight > title.offsetHeight && fontSize > 0.5) {
+                    fontSize -= 0.03;
+                    title.style.fontSize = fontSize + 'em';
+                }
+            });
+        }
+
+        // Reuse cached data for the global search bar
         window.handleGlobalSearch = function() {
-            clearTimeout(searchDebounceTimer);
             const queryVal = document.getElementById('global-search').value.toLowerCase().trim();
             const dropdown = document.getElementById('search-dropdown');
             if (queryVal.length < 2) { dropdown.style.display = 'none'; return; }
 
-            searchDebounceTimer = setTimeout(() => {
-                if (cachedCars.length === 0) return;
-                const matches = cachedCars.filter(car => car.Model.toLowerCase().includes(queryVal));
-                matches.sort((a, b) => a.Model.toLowerCase().localeCompare(b.Model.toLowerCase()));
-                renderSuggestions(matches);
-            }, 200);
+            const matches = cachedCars.filter(car => car.Model.toLowerCase().includes(queryVal))
+                .sort((a, b) => a.Model.localeCompare(b.Model))
+                .slice(0, 10); // Limit suggestions for speed
+                
+            renderSuggestions(matches);
         };
 
         function renderSuggestions(matches) {
@@ -77,123 +150,15 @@
                 const div = document.createElement("div");
                 div.className = "search-suggestion";
                 const type = car["Super TH"] ? "STH" : (car["TH"] ? "TH" : "Mainline");
-                const caseName = Array.isArray(car.Case) ? car.Case[0] : car.Case;
-                div.innerHTML = `<span class="suggestion-type">${type}</span>${car.Model} <small style="color: #bbb; margin-left: 8px;">(${caseName})</small>`;
-                div.onclick = () => {
-                    dropdown.style.display = 'none';
-                    window.location.href = `carinfo.html?id=${car.id}`;
-                };
+                div.innerHTML = `<span class="suggestion-type">${type}</span>${car.Model}`;
+                div.onclick = () => window.location.href = `carinfo.html?id=${car.id}`;
                 dropdown.appendChild(div);
             });
             dropdown.style.display = 'block';
         }
 
-        window.addEventListener('click', (e) => {
-            if (!e.target.matches('#global-search')) {
-                const dd = document.getElementById('search-dropdown');
-                const searchInput = document.getElementById('global-search');
-                if (dd) dd.style.display = 'none';
-                if (searchInput) searchInput.value = ""; 
-            }
-        });
-
-        window.addEventListener('keydown', (e) => {
-            if (e.key === "Escape") {
-                document.getElementById('search-dropdown').style.display = 'none';
-                document.getElementById('global-search').value = "";
-            }
-        });
-
-        // --- EXISTING CASE LOGIC ---
-        const urlParams = new URLSearchParams(window.location.search);
-        const caseName = urlParams.get('name');
-        const cleanCase = caseName ? caseName : "Hot Wheels";
-        document.title = `${cleanCase} List - Maniko Hot Wheels Database`;
-
-        document.getElementById("case-title").innerText = "Case: " + cleanCase;
-
-        // --- THE SHRINKER FUNCTION ---
-        function adjustFontSizes() {
-            const titles = document.querySelectorAll('#cars-grid h3');
-            titles.forEach(title => {
-                let fontSize = 1.0; 
-                // Decrease font size until it fits in the 2-line box
-                while (title.scrollHeight > title.offsetHeight && fontSize > 0.5) {
-                    fontSize -= 0.03; // Smaller steps for smoother results
-                    title.style.fontSize = fontSize + 'em';
-                }
-            });
-        }
-
-        async function loadCaseCars() {
-            const grid = document.getElementById("cars-grid");
-            try {
-                const carsRef = collection(db, "mainline-cars");
-                grid.innerHTML = "<p>Loading cars...</p>";
-
-                const [snapString, snapArray] = await Promise.all([
-                    getDocs(query(carsRef, where("Case", "==", caseName), orderBy("Super TH", "desc"), orderBy("TH", "desc"), orderBy("Model", "asc"))),
-                    getDocs(query(carsRef, where("Case", "array-contains", caseName), orderBy("Super TH", "desc"), orderBy("TH", "desc"), orderBy("Model", "asc")))
-                ]);
-
-                const allCarsMap = new Map();
-                snapString.docs.forEach(doc => allCarsMap.set(doc.id, doc.data()));
-                snapArray.docs.forEach(doc => allCarsMap.set(doc.id, doc.data()));
-
-                if (allCarsMap.size === 0) {
-                    grid.innerHTML = "<p>No cars found.</p>";
-                    return;
-                }
-
-                const combinedCars = Array.from(allCarsMap, ([id, data]) => ({ id, ...data }));
-                combinedCars.sort((a, b) => {
-                    if (b["Super TH"] !== a["Super TH"]) return b["Super TH"] - a["Super TH"];
-                    if (b["TH"] !== a["TH"]) return b["TH"] - a["TH"];
-                    return a.Model.localeCompare(b.Model);
-                });
-
-                grid.innerHTML = ""; 
-
-                const cardPromises = combinedCars.map(async (carData) => {
-                    const carId = carData.id;
-                    const ext = carData.ImageExt || "jpg"; 
-                    const carCard = document.createElement("a");
-                    carCard.href = `carinfo.html?id=${carId}`;
-                    
-                    let typeLabel = carData["Super TH"] ? "STH" : (carData["TH"] ? "TH" : "Mainline");
-                    let typeColor = carData["Super TH"] ? "#e67e22" : (carData["TH"] ? "#95a5a6" : "#555");
-
-                    carCard.innerHTML = `
-                        <div style="width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 8px; margin-bottom: 10px;">
-                            <img id="img-${carId}" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" loading="lazy" style="width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.3s ease;">
-                        </div>
-                        <h3>${carData.Model}</h3>
-                        <p style="font-weight: bold; color: ${typeColor};">${typeLabel}</p>
-                    `;
-                    grid.appendChild(carCard);
-
-                    try {
-                        const url = await getDownloadURL(ref(storage, `${carId}.${ext}`));
-                        const img = document.getElementById(`img-${carId}`);
-                        if (img) {
-                            img.src = url;
-                            img.onload = () => img.style.opacity = "1";
-                        }
-                    } catch (e) { console.warn(carId); }
-                });
-
-                // Wait for all HTML to be created
-                await Promise.all(cardPromises);
-                
-                // Give the browser 100ms to calculate layout, then shrink text
-                setTimeout(adjustFontSizes, 100);
-
-            } catch (error) {
-                console.error(error);
-                grid.innerHTML = `<p>Error loading case.</p>`;
-            }
-        }
-        loadCaseCars();
+        // Start everything
+        startPage();
     </script>
 </body>
 </html>
