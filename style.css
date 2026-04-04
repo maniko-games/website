@@ -120,6 +120,22 @@ body {
     #cars-grid p { font-size: 1em; }
 }
 
+.filter-btn {
+    padding: 8px 20px;
+    border-radius: 20px;
+    border: 2px solid #2196F3;
+    background: white;
+    color: #2196F3;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.filter-btn.active, .filter-btn:hover {
+    background: #2196F3;
+    color: white;
+}
+
 h1 {
     font-size: clamp(1.5rem, 5vw, 2.5rem); 
     white-space: nowrap;

@@ -31,6 +31,13 @@
 <body style="font-family: sans-serif; text-align: center; padding: 0 20px 20px 20px; background-color: #f9f9f9;">
     <h1 id="page-title" style="margin-top: 20px;">Loading Treasures...</h1>
 
+    <div id="year-filter" style="margin: 20px auto; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+        <button onclick="filterByYear('All')" class="filter-btn active">All</button>
+        <button onclick="filterByYear('2026')" class="filter-btn">2026</button>
+        <button onclick="filterByYear('2025')" class="filter-btn">2025</button>
+        <button onclick="filterByYear('2024')" class="filter-btn">2024</button>
+    </div>
+
     <div id="cars-grid"></div>
 
     <script type="module">
@@ -51,30 +58,25 @@
         document.getElementById("page-title").innerText = type === "STH" ? "🔥 Super Treasure Hunts" : "💎 Treasure Hunts";
 
         // --- 1. THE LOAD & FILTER LOGIC ---
+        let currentTreasures = []; // Keep a global reference to the treasures found
+
         async function startPage() {
             const grid = document.getElementById("cars-grid");
             grid.innerHTML = "<p>Loading treasures...</p>";
 
             try {
-                // Fetch everything once (leverages browser cache if already fetched)
                 if (cachedCars.length === 0) {
                     const querySnapshot = await getDocs(collection(db, "mainline-cars"));
                     cachedCars = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 }
 
-                // Filter locally: look for car["Super TH"] == true OR car["TH"] == true
                 const fieldToFilter = type === "STH" ? "Super TH" : "TH";
-                const matches = cachedCars.filter(car => car[fieldToFilter] === true);
+                
+                // Store the filtered results globally
+                currentTreasures = cachedCars.filter(car => car[fieldToFilter] === true);
 
-                // Sort: Year DESC, then Case Letter DESC
-                matches.sort((a, b) => {
-                    const getSortData = (car) => {
-                        const caseStr = Array.isArray(car.Case) ? car.Case[0] : car.Case;
-                        const yearMatch = caseStr.match(/\d{4}$/);
-                        const year = yearMatch ? parseInt(yearMatch[0]) : 0;
-                        const letter = caseStr.trim().charAt(0).toUpperCase();
-                        return { year, letter };
-                    };
+                // Initial Sort
+                currentTreasures.sort((a, b) => {
                     const dataA = getSortData(a);
                     const dataB = getSortData(b);
                     if (dataB.year !== dataA.year) return dataB.year - dataA.year;
@@ -82,12 +84,45 @@
                     return a.Model.localeCompare(b.Model);
                 });
 
-                renderGrid(matches);
+                renderGrid(currentTreasures);
             } catch (e) {
                 console.error(e);
                 grid.innerHTML = "<p>Error loading treasures.</p>";
             }
         }
+
+        // Helper to extract Year and Letter from Case string
+        function getSortData(car) {
+            const caseStr = Array.isArray(car.Case) ? car.Case[0] : car.Case;
+            const yearMatch = caseStr.match(/\d{4}$/);
+            const year = yearMatch ? parseInt(yearMatch[0]) : 0;
+            const letter = caseStr.trim().charAt(0).toUpperCase();
+            return { year, letter };
+        }
+
+        window.filterByYear = function(year) {
+            console.log("Filtering by:", year); // Check your console to see if this triggers
+
+            // Update button styles
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                // This matches the text inside the button to the year passed
+                if (btn.innerText === year) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+
+            if (year === 'All') {
+                renderGrid(currentTreasures);
+            } else {
+                const filtered = currentTreasures.filter(car => {
+                    const data = getSortData(car);
+                    return data.year === parseInt(year);
+                });
+                renderGrid(filtered);
+            }
+        };
 
         // --- 2. THE RENDER LOGIC ---
         function renderGrid(cars) {

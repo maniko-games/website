@@ -145,14 +145,20 @@
 
             const typeDiv = document.getElementById("car-type");
             if (data["Super TH"]) {
-                typeDiv.innerText = "SUPER TREASURE HUNT 🔥";
-                typeDiv.style.color = "#e67e22"; typeDiv.style.backgroundColor = "#fff5e6";
+                typeDiv.innerHTML = `<a href="treasures.html?type=STH" style="text-decoration: none; color: inherit; display: block;">SUPER TREASURE HUNT 🔥</a>`;
+                typeDiv.style.color = "#e67e22"; 
+                typeDiv.style.backgroundColor = "#fff5e6";
+                typeDiv.style.cursor = "pointer";
             } else if (data["TH"]) {
-                typeDiv.innerText = "TREASURE HUNT 💎";
-                typeDiv.style.color = "#95a5a6"; typeDiv.style.backgroundColor = "#f2f2f2";
+                typeDiv.innerHTML = `<a href="treasures.html?type=TH" style="text-decoration: none; color: inherit; display: block;">TREASURE HUNT 💎</a>`;
+                typeDiv.style.color = "#95a5a6"; 
+                typeDiv.style.backgroundColor = "#f2f2f2";
+                typeDiv.style.cursor = "pointer";
             } else {
                 typeDiv.innerText = "Mainline";
-                typeDiv.style.color = "#666"; typeDiv.style.backgroundColor = "transparent";
+                typeDiv.style.color = "#666"; 
+                typeDiv.style.backgroundColor = "transparent";
+                typeDiv.style.cursor = "default";
             }
 
             // --- IMAGE / SLIDER LOGIC ---
