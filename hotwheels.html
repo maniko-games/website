@@ -28,14 +28,6 @@
     <meta property="og:url" content="https://maniko.games/hotwheels.html">
 </head>
 
-<header class="global-header">
-    <div class="header-top">
-        <a href="hotwheels.html" class="logo">Maniko HW DB</a>
-        <div class="search-container">
-            <input type="text" id="global-search" placeholder="Search" oninput="handleGlobalSearch()">
-        </div>
-    </div>
-</header>
 <div class="header-spacer"></div>
 
 <body style="font-family: sans-serif; text-align: center; padding: 20px; background-color: #f9f9f9;">
@@ -118,13 +110,14 @@
 </div>
 
 <script type="module">
+    import { injectSharedUI } from './components.js';
+    injectSharedUI();
+
+    import { app, db, adjustFontSizes } from './app.js';
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
-    import { getFirestore, collection, query, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-    import { firebaseConfig, adjustFontSizes } from './app.js';
+    import { collection, query, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
     const storage = getStorage(app);
 
     let cachedCars = [];

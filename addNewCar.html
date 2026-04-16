@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Add car</title>
+    <link rel="icon" type="image/png" href="https://github.com/maniko-games/website/blob/main/Images/th.png?raw=true">
+    <link rel="stylesheet" href="style.css?v=1.1">
+</head>
+<body style="font-family: sans-serif; padding: 40px; max-width: 500px; margin: auto;">
+
+    <h2>Add New Hot Wheels</h2>
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+        
+        <div style="display: flex; gap: 5px;">
+            <input type="text" id="modelName" placeholder="Model Name (e.g. '92 Dodge Viper RT/10)" style="flex-grow: 1; padding: 8px;">
+            <button type="button" id="btnSearch" style="padding: 5px 15px; cursor: pointer; background: #FF9800; color: white; border: none; border-radius: 4px; font-weight: bold;">
+                Search 🔍
+            </button>
+        </div>
+
+        <div id="search-results-admin" class="admin-search-results">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span style="font-size: 0.8em; font-weight: bold; color: #856404;">Existing Models Found:</span>
+                <button onclick="document.getElementById('search-results-admin').style.display='none'" style="background: none; border: none; cursor: pointer; color: #856404; font-weight: bold;">Close ×</button>
+            </div>
+            <div id="admin-results-grid" style="display: flex; flex-direction: column; gap: 10px;"></div>
+        </div>
+
+        <div id="case-container" style="display: flex; flex-direction: column; gap: 5px;">
+            <label style="font-size: 0.8em; color: #666;">Select Case(s):</label>
+            <div class="case-row" style="display: flex; gap: 5px;">
+                <select class="case-select" style="padding: 8px; flex-grow: 1;">
+                    <option value="">-- Select Case --</option>
+                    <option value="Q - 2024">Q - 2024</option>
+                    <option value="P - 2024">P - 2024</option>
+                    <option value="N - 2024">N - 2024</option>
+                    <option value="M - 2024">M - 2024</option>
+                    <option value="L - 2024">L - 2024</option>
+                    <option value="K - 2024">K - 2024</option>
+                    <option value="J - 2024">J - 2024</option>
+                    <option value="H - 2024">H - 2024</option>
+                    <option value="G - 2024">G - 2024</option>
+                    <option value="F - 2024">F - 2024</option>
+                    <option value="E - 2024">E - 2024</option>
+                    <option value="D - 2024">D - 2024</option>
+                    <option value="C - 2024">C - 2024</option>
+                    <option value="B - 2024">B - 2024</option>
+                    <option value="A - 2024">A - 2024</option>
+                </select>
+            </div>
+        </div>
+        <button type="button" id="btnAddCase" style="margin-bottom: 10px; padding: 5px; cursor: pointer; background: #ddd; border: 1px solid #ccc; font-size: 0.8em;">
+            + Add another Case
+        </button>
+        
+        <label><input type="checkbox" id="isSuper"> Super TH?</label>
+        <label><input type="checkbox" id="isTH"> Regular TH?</label>
+        <label><input type="checkbox" id="iLike"> I like?</label>
+        <label><input type="checkbox" id="iOwn"> I own?</label>
+        
+        <input type="text" id="yearPath" value="years/2024" placeholder="Year Document Path">
+
+        <label style="font-size: 0.8em; color: #666;">Generated Document ID (Filename):</label>
+        <div style="display: flex; gap: 5px;">
+            <input type="text" id="docId" placeholder="Auto-generated ID" readonly 
+                   style="background: #eee; border: 1px solid #ccc; padding: 8px; flex-grow: 1; font-family: monospace;">
+            <button id="btnCopy" style="padding: 5px 15px; cursor: pointer; background: #607d8b; color: white; border: none; border-radius: 4px;">
+                Copy
+            </button>
+        </div>
+
+        <label style="font-size: 0.8em; color: #666; margin-top: 5px;">Upload Car Photo (.jpg):</label>
+        <input type="file" id="imageInput" accept="image/jpeg, image/webp">
+        
+        <div id="duplicate-warning" style="display: none; background: #fff3cd; border: 1px solid #ffeeba; border-radius: 8px; padding: 15px; margin: 10px 0; text-align: left;">
+            <p style="color: #856404; font-weight: bold; margin-top: 0;">⚠️ A car with this ID already exists!</p>
+            <p style="font-size: 0.85em; color: #666;">What would you like to do?</p>
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <button id="btnOverwrite" style="background: #e74c3c; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;">Overwrite</button>
+                <button id="btnCreateNew" style="background: #27ae60; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;">Create New (with index)</button>
+                <button onclick="document.getElementById('duplicate-warning').style.display='none'" style="background: #95a5a6; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;">Cancel</button>
+            </div>
+        </div>
+
+        <button id="btnSave" ...>Save Data & Upload Image</button>
+        <p id="status" style="font-weight: bold;"></p>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, query, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAkdQrNE0jswL4xfAEM4uHtHyzPwn2o3bU",
+            authDomain: "maniko-hotwheels.firebaseapp.com",
+            projectId: "maniko-hotwheels",
+            storageBucket: "maniko-hotwheels.firebasestorage.app",
+            messagingSenderId: "534387805003",
+            appId: "1:534387805003:web:9b78747f3538b58194b6ce",
+            measurementId: "G-V3WYKC0X1Q"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const storage = getStorage(app);
+
+        const modelInput = document.getElementById("modelName");
+        const idOutput = document.getElementById("docId");
+        const status = document.getElementById("status");
+        const imageInput = document.getElementById("imageInput");
+        const superCheckbox = document.getElementById("isSuper");
+        const caseContainer = document.getElementById("case-container");
+        const warningBox = document.getElementById("duplicate-warning");
+
+        // --- ID GENERATION ---
+        function generateId() {
+            // 1. Clean the model name (remove symbols, lowercase)
+            let model = modelInput.value.toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
+            
+            // 2. Clean the case name
+            const firstSelect = document.querySelector(".case-select");
+            let firstCase = firstSelect ? firstSelect.value.toLowerCase().replace(/[^a-z0-9 ]/g, "").trim() : "";
+            
+            // 3. Add suffix for Super Treasure Hunts
+            let suffix = superCheckbox.checked ? "-super" : "";
+            
+            // 4. Combine into a clean URL-friendly ID
+            let combined = `${model}-${firstCase}${suffix}`;
+            
+            // 5. Replace any double dashes or spaces with a single dash
+            let cleanId = combined.replace(/\s+/g, "-").replace(/-+/g, "-"); 
+            
+            idOutput.value = cleanId;
+        }
+
+        modelInput.addEventListener("input", generateId);
+        superCheckbox.addEventListener("change", generateId);
+        caseContainer.addEventListener("change", (e) => {
+            if (e.target.classList.contains("case-select")) generateId();
+        });
+
+        // --- ADD CASE (Fixed: Only one listener now) ---
+        document.getElementById("btnAddCase").addEventListener("click", () => {
+            const firstRow = document.querySelector(".case-row");
+            const newRow = firstRow.cloneNode(true);
+            newRow.querySelector("select").value = ""; 
+            caseContainer.appendChild(newRow);
+        });
+
+        // --- COPY LOGIC ---
+        document.getElementById("btnCopy").addEventListener("click", () => {
+            if (!idOutput.value) return;
+            navigator.clipboard.writeText(idOutput.value).then(() => {
+                const btn = document.getElementById("btnCopy");
+                btn.innerText = "Done!";
+                setTimeout(() => btn.innerText = "Copy", 1500);
+            });
+        });
+
+        // --- SAVE DATA & UPLOAD IMAGE ---
+        document.getElementById("btnSave").addEventListener("click", async () => {
+            const id = idOutput.value;
+            const file = imageInput.files[0];
+
+            if (!id || !file) {
+                alert("ID and Image are required!");
+                return;
+            }
+
+            try {
+                status.innerText = "🔍 Checking for duplicates...";
+                const docRef = doc(db, "mainline-cars", id);
+                const docSnap = await getDoc(docRef);
+
+                if (docSnap.exists()) {
+                    // SHOW THE WARNING
+                    warningBox.style.display = "block";
+                    status.innerText = "⚠️ Attention required above.";
+                    
+                    // Set up the Overwrite button
+                    document.getElementById("btnOverwrite").onclick = () => executeSave(id);
+                    
+                    // Set up the Create New button
+                    document.getElementById("btnCreateNew").onclick = async () => {
+                        let index = 1;
+                        let newId = `${id}-${index.toString().padStart(2, '0')}`;
+                        
+                        // Keep checking until we find a free index
+                        let exists = true;
+                        while (exists) {
+                            const checkSnap = await getDoc(doc(db, "mainline-cars", newId));
+                            if (!checkSnap.exists()) {
+                                exists = false;
+                            } else {
+                                index++;
+                                newId = `${id}-${index.toString().padStart(2, '0')}`;
+                            }
+                        }
+                        executeSave(newId);
+                    };
+                } else {
+                    // No duplicate, save normally
+                    executeSave(id);
+                }
+            } catch (e) {
+                console.error(e);
+                status.innerText = "❌ Error: " + e.message;
+            }
+        });
+
+        // --- UPDATED SAVE LOGIC: DATA TO FIRESTORE + LOCAL DOWNLOAD ---
+        async function executeSave(finalId) {
+            warningBox.style.display = "none";
+            const file = imageInput.files[0];
+            
+            if (!file) {
+                alert("Please select an image first!");
+                return;
+            }
+
+            const extension = file.name.split('.').pop().toLowerCase();
+            const fileName = `${finalId}.${extension}`;
+
+            try {
+                status.innerText = "⏳ Saving data to Firestore...";
+
+                // 1. Collect Data for Firestore
+                const caseArray = Array.from(document.querySelectorAll(".case-select"))
+                                        .map(s => s.value).filter(v => v !== ""); 
+
+                const newCar = {
+                    "Model": modelInput.value,
+                    "Case": caseArray,
+                    "Super TH": superCheckbox.checked,
+                    "TH": document.getElementById("isTH").checked,
+                    "ImageExt": extension,
+                    "I like?": document.getElementById("iLike").checked,
+                    "I own?": document.getElementById("iOwn").checked,
+                    "Year": doc(db, document.getElementById("yearPath").value)
+                };
+
+                // 2. Save Data to Firestore (Engine still needs the database!)
+                await setDoc(doc(db, "mainline-cars", finalId), newCar);
+
+                // 3. Trigger a Local Download (The Replacement for Storage Upload)
+                status.innerText = "💾 Saving image to your computer...";
+                triggerLocalDownload(file, finalId, extension);
+                
+                status.innerText = "✅ Done! Check your Downloads folder.";
+                
+                // Show a small instruction
+                const tip = document.createElement('p');
+                tip.innerHTML = `👉 Drag <strong>${finalId}.${extension}</strong> to your <strong>/website/Cars/</strong> folder and push to GitHub!`;
+                tip.style.color = "#2196F3";
+                tip.style.fontSize = "0.9em";
+                status.appendChild(tip);
+
+                resetForm(); 
+            } catch (e) {
+                status.innerText = "❌ Error: " + e.message;
+            }
+        }
+
+        // NEW HELPER: Triggers a file download with the correctly formatted ID
+        function triggerLocalDownload(file, finalId, extension) {
+            const url = URL.createObjectURL(file);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${finalId}.${extension}`; // This ensures the filename is ALWAYS correct
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function resetForm() {
+            modelInput.value = "";
+            idOutput.value = "";
+            imageInput.value = "";
+            superCheckbox.checked = false;
+            document.getElementById("isTH").checked = false;
+            
+            // Reset the extra Case selects
+            const rows = document.querySelectorAll(".case-row");
+            rows.forEach((row, index) => {
+                if (index > 0) row.remove();
+            });
+            caseContainer.querySelector("select").value = "";
+            modelInput.focus();
+        }
+
+        // --- Hotkey: Enter to Search ---
+        // Moved OUTSIDE so it works immediately
+        modelInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault(); 
+                document.getElementById("btnSearch").click();
+            }
+        });
+
+        // --- ADMIN SEARCH LOGIC ---
+        document.getElementById("btnSearch").addEventListener("click", async () => {
+            const queryVal = modelInput.value.toLowerCase().trim();
+            const resultsDiv = document.getElementById("search-results-admin");
+            const grid = document.getElementById("admin-results-grid");
+            
+            if (queryVal.length < 2) {
+                alert("Enter at least 2 characters to search!");
+                return;
+            }
+
+            try {
+                grid.innerHTML = "Searching...";
+                resultsDiv.style.display = "block";
+
+                const querySnapshot = await getDocs(collection(db, "mainline-cars"));
+                const matches = querySnapshot.docs
+                    .map(doc => ({ id: doc.id, ...doc.data() }))
+                    .filter(car => car.Model.toLowerCase().includes(queryVal));
+
+                grid.innerHTML = "";
+
+                if (matches.length === 0) {
+                    grid.innerHTML = "<p style='font-size: 0.9em; color: #666;'>No matches found. Safe to add!</p>";
+                    return;
+                }
+
+                matches.forEach(async (car) => {
+                    const row = document.createElement("div");
+                    row.style = "display: flex; gap: 10px; align-items: center; background: white; padding: 5px; border-radius: 5px; border: 1px solid #eee;";
+                    
+                    const type = car["Super TH"] ? "STH" : (car["TH"] ? "TH" : "Mainline");
+                    const cases = Array.isArray(car.Case) ? car.Case.join(', ') : car.Case;
+
+                    row.innerHTML = `
+                        <img id="prev-${car.id}" class="admin-prev-img" src="" 
+                            style="height: 50px; width: 50px; object-fit: contain; background: #f9f9f9; border-radius: 4px;">
+                        <div style="text-align: left; font-size: 0.85em;">
+                            <div style="font-weight: bold;">${car.Model}</div>
+                            <div style="color: #666;">Case: ${cases}</div>
+                            <div style="font-weight: bold; color: #2196F3;">${type}</div>
+                            <div style="font-size: 0.7em; color: #999; margin-top: 4px;">${car.id}</div>
+                        </div>
+                    `;
+                    grid.appendChild(row);
+
+                    try {
+                        const imgUrl = await getDownloadURL(ref(storage, `${car.id}.${car.ImageExt || 'jpg'}`));
+                        const imgElement = document.getElementById(`prev-${car.id}`);
+                        if (imgElement) imgElement.src = imgUrl;
+                    } catch (err) {
+                        console.warn("No image for " + car.id);
+                    }
+                });
+
+            } catch (e) {
+                console.error(e);
+                grid.innerHTML = "Error searching.";
+            }
+        });
+
+        // Set focus to input on load so you can type immediately
+        modelInput.focus();
+    </script>
+</body>
+</html>

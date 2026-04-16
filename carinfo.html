@@ -23,29 +23,6 @@
     <link rel="stylesheet" href="style.css?v=1.1">
 </head>
 
-<header class="global-header">
-    <div class="header-top">
-        <a href="hotwheels.html" class="logo">Maniko HW DB</a>
-        <div class="search-container">
-            <input type="text" id="global-search" placeholder="Search" oninput="handleGlobalSearch()" autocomplete="off">
-            <div id="search-dropdown"></div>
-        </div>
-    </div>
-</header>
-
-<div id="search-overlay" style="display: none; position: fixed; top: 60px; left: 0; width: 100%; height: calc(100% - 60px); background: rgba(249, 249, 249, 0.98); z-index: 999; overflow-y: auto; padding: 20px;">
-    <div style="max-width: 800px; margin: 0 auto;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h2 id="overlay-title" style="margin: 0;">Search Results</h2>
-            <button onclick="closeSearch()" style="background: none; border: 1px solid #ccc; padding: 5px 15px; border-radius: 20px; cursor: pointer;">Close ×</button>
-        </div>
-        <div id="overlay-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px;">
-            </div>
-    </div>
-</div>
-
-<div class="header-spacer"></div>
-
 <body style="font-family: sans-serif; text-align: center; padding: 0 20px 20px 20px; background-color: #f9f9f9;">
 
     <div id="details-container" style="max-width: 540px; margin: 0 auto; background: white; border-radius: 15px; padding: 30px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
@@ -59,18 +36,28 @@
             <h1 id="car-model">---</h1>
             <p id="car-case">Case: ---</p>
             <div id="car-type" style="font-weight: bold; margin-top: 15px; padding: 10px; border-radius: 8px;"></div>
+            <div id="collection-controls" style="display: none; margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                <button id="btn-collection" onclick="toggleOwnership('collection')" style="padding: 10px 15px; border-radius: 8px; border: 1px solid #2196F3; background: white; color: #2196F3; cursor: pointer; font-weight: bold; transition: 0.2s;">
+                    🏠 Add to Collection
+                </button>
+                <button id="btn-wishlist" onclick="toggleOwnership('wishlist')" style="padding: 10px 15px; border-radius: 8px; border: 1px solid #e91e63; background: white; color: #e91e63; cursor: pointer; font-weight: bold; transition: 0.2s;">
+                    ❤️ Add to Wishlist
+                </button>
+            </div>
         </div>
     </div>
     <div id="treasure-section-outside" style="max-width: 1200px; margin: 40px auto 0 auto;"></div>
 
     <script type="module">
+        import { injectSharedUI } from './components.js';
+        import { app, db, adjustFontSizes } from './app.js';
+        import { doc, getDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, doc, getDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { firebaseConfig } from './app.js';
+        import { arrayUnion, arrayRemove, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { auth } from './app.js';
 
-        // 1. Initialize Firebase (The Engine)
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+        injectSharedUI();
 
         // 2. Setup Variables (The Data)
         let cachedCars = [];
@@ -287,6 +274,69 @@
         }
 
         loadData();
+
+        // --- COLLECTION LOGIC ---
+        window.toggleOwnership = async function(type) {
+            const user = auth.currentUser;
+            if (!user) {
+                openAuth();
+                return;
+            }
+
+            const userRef = doc(db, "users", user.uid);
+            const btn = document.getElementById(`btn-${type}`);
+            const isAdding = !btn.classList.contains('active');
+
+            try {
+                // We use setDoc with merge:true in case the user document doesn't exist yet
+                await setDoc(userRef, {
+                    [type]: isAdding ? arrayUnion(carId) : arrayRemove(carId)
+                }, { merge: true });
+
+                updateButtonUI(type, isAdding);
+            } catch (e) {
+                console.error("Error updating collection:", e);
+            }
+        };
+
+        function updateButtonUI(type, isActive) {
+            const btn = document.getElementById(`btn-${type}`);
+            if (type === 'collection') {
+                btn.innerHTML = isActive ? "✅ In Collection" : "🏠 Add to Collection";
+                btn.style.background = isActive ? "#2196F3" : "white";
+                btn.style.color = isActive ? "white" : "#2196F3";
+            } else {
+                btn.innerHTML = isActive ? "💖 In Wishlist" : "❤️ Add to Wishlist";
+                btn.style.background = isActive ? "#e91e63" : "white";
+                btn.style.color = isActive ? "white" : "#e91e63";
+            }
+            btn.classList.toggle('active', isActive);
+        }
+
+        // Check if user already owns this car when the page loads
+        async function checkCurrentStatus(user) {
+            if (!user) return;
+            const userSnap = await getDoc(doc(db, "users", user.uid));
+            if (userSnap.exists()) {
+                const data = userSnap.data();
+                if (data.collection?.includes(carId)) updateButtonUI('collection', true);
+                if (data.wishlist?.includes(carId)) updateButtonUI('wishlist', true);
+            }
+            document.getElementById('collection-controls').style.display = 'flex';
+        }
+
+        // Hook into Auth state
+        import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                checkCurrentStatus(user);
+            } else {
+                document.getElementById('collection-controls').style.display = 'flex';
+                // Reset buttons if user logs out
+                updateButtonUI('collection', false);
+                updateButtonUI('wishlist', false);
+            }
+        });
     </script>
 
     <div id="lightbox" onclick="this.style.display='none'">
