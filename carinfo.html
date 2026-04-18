@@ -75,6 +75,7 @@
             
             // Set placeholders immediately
             document.getElementById("car-model").innerText = tempName;
+            adjustDetailsTitleSize();
             document.getElementById("car-case").innerText = `Case: ${caseLetter} - ${year}`;
 
             // 🔥 NEW: Start the image download IMMEDIATELY
@@ -124,6 +125,7 @@
             const mainImageUrl = `Cars/${carId}.${ext}`;
 
             document.getElementById("car-model").innerText = data.Model;
+            adjustDetailsTitleSize();
             
             const cases = Array.isArray(data.Case) ? data.Case : [data.Case];
             document.getElementById("car-case").innerHTML = "<strong>Case:</strong> " + cases.map(c => 
@@ -337,6 +339,22 @@
                 updateButtonUI('wishlist', false);
             }
         });
+
+        function adjustDetailsTitleSize() {
+            const title = document.getElementById('car-model');
+            const container = document.getElementById('details-container');
+            
+            // Starting font size in pixels (matches 2.5rem roughly)
+            let fontSize = 40; 
+            title.style.fontSize = fontSize + 'px';
+
+            // Shrink font size until it fits within the container width 
+            // or until it reaches a minimum readable size (20px)
+            while (title.scrollWidth > (container.offsetWidth - 60) && fontSize > 20) {
+                fontSize -= 2;
+                title.style.fontSize = fontSize + 'px';
+            }
+        }
     </script>
 
     <div id="lightbox" onclick="this.style.display='none'">

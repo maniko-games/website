@@ -1,27 +1,25 @@
-// components.js
 export function injectSharedUI() {
     const headerHTML = `
         <header class="global-header">
             <div class="header-top">
-                <a href="hotwheels.html" class="logo">Maniko HW DB</a>
+                <a href="hotwheels.html" class="logo">🏠</a>
                 <div class="search-container">
                     <input type="text" id="global-search" placeholder="Search" oninput="handleGlobalSearch()" autocomplete="off">
                     <div id="search-dropdown"></div>
                 </div>
                 <div id="auth-section">
-                    <button id="login-trigger" onclick="event.stopPropagation(); openAuth();" style="background: #2196F3; color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; font-weight: bold;">Login</button>
+                    <button id="login-trigger" onclick="event.stopPropagation(); openAuth();" style="background: #2196F3; color: white; border: none; padding: 8px 18px; border-radius: 20px; cursor: pointer; font-weight: bold; font-family: sans-serif;">Login</button>
                     
                     <div id="user-menu-container" style="display: none; position: relative;">
-                        <button id="user-btn" onclick="toggleUserMenu(event)" style="background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                            <img id="user-pic" src="" style="width: 32px; height: 32px; border-radius: 50%; background: #eee;">
-                            <span id="user-name" style="font-weight: bold; color: #333;">Profile</span>
+                        <button id="user-btn" onclick="toggleUserMenu(event)" style="background: none; border: none; cursor: pointer; display: flex; align-items: center; padding: 0;">
+                            <img id="user-pic" src="" style="width: 36px; height: 36px; border-radius: 50%; background: #eee; border: 2px solid transparent; transition: border-color 0.2s;">
                         </button>
-                        <div id="user-dropdown" style="display: none; position: absolute; top: 45px; right: 0; background: white; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); width: 180px; padding: 10px; z-index: 1001;">
-                            <a href="my-collection.html" style="display: block; padding: 10px; text-decoration: none; color: #333;">🏠 My Collection</a>
-                            <a href="my-collection.html?type=wishlist" style="display: block; padding: 10px; text-decoration: none; color: #333;">❤️ My Wishlist</a>
+                        <div id="user-dropdown" style="display: none; position: absolute; top: 48px; right: 0; background: white; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); width: 180px; padding: 10px; z-index: 1001; text-align: left;">
+                            <a href="my-collection.html" style="display: block; padding: 10px; text-decoration: none; color: #333; font-family: sans-serif;">🏠 My Collection</a>
+                            <a href="my-collection.html?type=wishlist" style="display: block; padding: 10px; text-decoration: none; color: #333; font-family: sans-serif;">❤️ My Wishlist</a>
                             <div id="admin-only-links"></div>
-                            <hr style="border: 0; border-top: 1px solid #eee;">
-                            <button onclick="handleLogout()" style="width: 100%; text-align: left; background: none; border: none; padding: 10px; color: #e74c3c; cursor: pointer;">🚪 Log Out</button>
+                            <hr style="border: 0; border-top: 1px solid #eee; margin: 5px 0;">
+                            <button onclick="handleLogout()" style="width: 100%; text-align: left; background: none; border: none; padding: 10px; color: #e74c3c; cursor: pointer; font-family: sans-serif; font-weight: bold;">Log Out</button>
                         </div>
                     </div>
                 </div>
