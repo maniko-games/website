@@ -130,15 +130,15 @@
     injectSharedUI();
 
     import { app, auth, db, adjustFontSizes } from './app.js';
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+    import { getStorage } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
     import { collection, query, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
+    // --- 1. GLOBAL AUTH CHECK ---
     window.checkLogin = function(e) {
         if (!auth.currentUser) {
-            e.preventDefault(); // Stop the page from opening
+            e.preventDefault();
             if (window.openAuth) {
-                window.openAuth(); // Open the login modal
+                window.openAuth();
             } else {
                 alert("Please login to view your garage.");
             }
@@ -147,28 +147,17 @@
         return true;
     };
 
-    const storage = getStorage(app);
-
     let cachedCars = [];
 
-    // --- 1. INITIAL LOAD LOGIC ---
-    async function loadAndDisplayRandom() {
-        const grid = document.getElementById("cars-grid");
+    // --- 2. FEATURED CARS LOGIC ---
+    async function loadAndDisplayFeatured() {
         try {
+            // Fetch all cars to pick random ones for the "Featured" section
             if (cachedCars.length === 0) {
                 const querySnapshot = await getDocs(query(collection(db, "mainline-cars")));
                 cachedCars = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             }
-            
-            // Handle search from URL if present, otherwise show random
-            const urlParams = new URLSearchParams(window.location.search);
-            const searchQuery = urlParams.get('search');
-            if (searchQuery) {
-                document.getElementById('global-search').value = searchQuery;
-                window.handleSearch();
-            } else {
-                renderRandomSelection();
-            }
+            renderRandomSelection();
         } catch (error) {
             console.error("Firebase Error:", error);
         }
@@ -177,82 +166,22 @@
     function renderRandomSelection() {
         const grid = document.getElementById("cars-grid");
         grid.innerHTML = ""; 
+        
+        // Pick 3 random cars
         const selected = [...cachedCars].sort(() => 0.5 - Math.random()).slice(0, 3);
-        window.renderSearchSelection(selected); // Reuse the global render function
-    }
 
-    
-    window.handleGlobalSearch = function() {
-        const queryVal = document.getElementById('global-search').value.toLowerCase().trim();
-        
-        // Check if we are on the home page
-        if (window.location.pathname.includes('hotwheels.html')) {
-            // Run the home page search logic directly
-            window.handleSearch(queryVal); 
-        } else if (queryVal.length > 2) {
-            // Redirect home if on another page
-            window.location.href = `hotwheels.html?search=${encodeURIComponent(queryVal)}`;
-        }
-    };
-
-    window.handleSearch = function(externalQuery = null) {
-        // If a query was passed in (from Global Search), use it. 
-        // Otherwise, try to grab it from the global search input.
-        const queryVal = externalQuery !== null ? externalQuery : document.getElementById('global-search').value.toLowerCase().trim();
-        
-        const featuredTitle = document.getElementById('featured-title');
-        const shuffleBtn = document.getElementById('shuffle-btn');
-        const grid = document.getElementById('cars-grid');
-
-        // If search is empty, show featured
-        if (queryVal.length === 0) {
-            featuredTitle.innerText = "Featured Cars";
-            shuffleBtn.style.display = "block";
-            renderRandomSelection();
-            return;
-        }
-
-        // Update UI for search mode
-        featuredTitle.innerText = "Search Results";
-        shuffleBtn.style.display = "none";
-        
-        const filtered = cachedCars.filter(car => 
-            car.Model.toLowerCase().includes(queryVal)
-        );
-
-        window.renderSearchSelection(filtered);
-    };
-
-    window.renderSearchSelection = async function(carsToDisplay) {
-        const grid = document.getElementById("cars-grid");
-        grid.innerHTML = ""; 
-
-        if (carsToDisplay.length === 0) {
-            grid.innerHTML = "<p style='grid-column: 1/-1; color: #999;'>No models found.</p>";
-            return;
-        }
-
-        carsToDisplay.forEach((carData) => {
+        selected.forEach((carData) => {
             const carId = carData.id;
-            
-            // 1. DEFINE ext FIRST so the HTML can use it
             const ext = carData.ImageExt || "jpg";
-
-            // Determine Type Label and Color
             let typeLabel = carData["Super TH"] ? "Super Treasure Hunt" : (carData["TH"] ? "Treasure Hunt" : "Mainline");
             let typeColor = carData["Super TH"] ? "#e67e22" : (carData["TH"] ? "#95a5a6" : "#555");
 
             const carCard = document.createElement("a");
             carCard.href = `carinfo.html?id=${carId}`;
             carCard.className = "car-item";
-            
-            // 2. USE local folder path: Cars/filename.ext
             carCard.innerHTML = `
                 <div style="width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 8px; margin-bottom: 10px;">
-                    <img id="img-search-${carId}" 
-                        src="Cars/${carId}.${ext}" 
-                        style="width: 100%; height: 100%; object-fit: contain;"
-                        loading="lazy">
+                    <img src="Cars/${carId}.${ext}" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy">
                 </div>
                 <h3>${carData.Model}</h3>
                 <p><strong>Case:</strong> ${
@@ -268,10 +197,9 @@
         });
 
         adjustFontSizes(); 
-    };
+    }
 
-    // --- 3. OTHER UI FUNCTIONS ---
-
+    // --- 3. UI FUNCTIONS ---
     window.shuffleCars = () => {
         if (typeof gtag === 'function') gtag('event', 'shuffle_clicked');
         renderRandomSelection();
@@ -294,7 +222,7 @@
         h.style.display = h.style.display === 'none' ? 'block' : 'none';
     };
 
-    loadAndDisplayRandom();
+    loadAndDisplayFeatured();
 </script>
 </body>
 </html>

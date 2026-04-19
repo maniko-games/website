@@ -48,13 +48,74 @@ onAuthStateChanged(auth, async (user) => {
     }
 });
 
+// --- GLOBAL SEARCH ENGINE (With Duplicate Removal) ---
+let globalCarCache = [];
 
-// 2. The Global Search Logic
-window.handleGlobalSearch = function() {
-    const query = document.getElementById('global-search').value.toLowerCase().trim();
-    if (query.length > 1) {
-        // Redirect to home page with search parameter
-        window.location.href = `hotwheels.html?search=${encodeURIComponent(query)}`;
+window.handleGlobalSearch = async function() {
+    const queryVal = document.getElementById('global-search').value.toLowerCase().trim();
+    const dropdown = document.getElementById('search-dropdown');
+
+    if (queryVal.length < 2) {
+        if (dropdown) dropdown.style.display = 'none';
+        return;
+    }
+
+    if (globalCarCache.length === 0) {
+        const { collection, getDocs } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+        const querySnapshot = await getDocs(collection(db, "mainline-cars"));
+        globalCarCache = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    }
+
+    // 1. Initial filter for matches
+    const allMatches = globalCarCache.filter(car => car.Model.toLowerCase().includes(queryVal));
+
+    // 2. Group by Model Name to remove duplicates
+    const uniqueMatches = [];
+    const seenModels = new Set();
+
+    allMatches.forEach(car => {
+        // Create a unique key using Model Name + Type 
+        // (This keeps STH and Mainline separate even if they have the same name)
+        const typeKey = car["Super TH"] ? "STH" : (car["TH"] ? "TH" : "Mainline");
+        const uniqueKey = `${car.Model}-${typeKey}`;
+
+        if (!seenModels.has(uniqueKey)) {
+            uniqueMatches.push(car);
+            seenModels.add(uniqueKey);
+        }
+    });
+
+    // 3. Render the limited results (Top 10)
+    if (dropdown) {
+        dropdown.innerHTML = "";
+        const finalResults = uniqueMatches.slice(0, 10);
+
+        if (finalResults.length > 0) {
+            finalResults.forEach(car => {
+                const div = document.createElement("div");
+                div.className = "search-suggestion";
+                const type = car["Super TH"] ? "STH" : (car["TH"] ? "TH" : "Mainline");
+                
+                // Add a little color logic for the badges in the list
+                const badgeColor = type === 'STH' ? '#e67e22' : (type === 'TH' ? '#95a5a6' : '#eee');
+                const textColor = type === 'Mainline' ? '#666' : '#fff';
+
+                div.innerHTML = `
+                    <span class="suggestion-type" style="background: ${badgeColor}; color: ${textColor};">
+                        ${type}
+                    </span>
+                    ${car.Model}
+                `;
+                
+                div.onclick = () => {
+                    window.location.href = `carinfo.html?id=${car.id}`;
+                };
+                dropdown.appendChild(div);
+            });
+            dropdown.style.display = 'block';
+        } else {
+            dropdown.style.display = 'none';
+        }
     }
 };
 
@@ -247,3 +308,48 @@ if (new URLSearchParams(window.location.search).get('auth') === 'required') {
         if (window.openAuth) window.openAuth();
     }, 500);
 }
+
+// --- GLOBAL SEARCH UI CONTROLS ---
+
+// 1. Close search when pressing Escape
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const dropdown = document.getElementById('search-dropdown');
+        const searchInput = document.getElementById('global-search');
+        
+        if (dropdown) dropdown.style.display = 'none';
+        if (searchInput) {
+            searchInput.value = ''; // Clear the text
+            searchInput.blur();
+            // If on collection page, show all cars again
+            if (window.applyFilters) window.applyFilters(); 
+        }
+    }
+});
+
+// 2. Close and clear search when clicking anywhere outside the search area
+window.addEventListener('click', (e) => {
+    const dropdown = document.getElementById('search-dropdown');
+    const searchInput = document.getElementById('global-search');
+    
+    // If the click is NOT on the input and NOT on the dropdown
+    if (dropdown && searchInput && !searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+        
+        // Only trigger clear/refresh if there is actually text in there
+        if (searchInput.value !== "") {
+            searchInput.value = '';
+            
+            // If on the collection page, refresh the grid to show all cars again
+            if (typeof window.applyFilters === 'function') {
+                window.applyFilters();
+            }
+            
+            // If on the home page, refresh to show random selection again
+            if (typeof window.handleSearch === 'function') {
+                window.handleSearch(''); 
+            }
+        }
+        
+        dropdown.style.display = 'none';
+    }
+});

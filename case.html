@@ -178,35 +178,6 @@
             }
         });
 
-        // Reuse cached data for the global search bar
-        window.handleGlobalSearch = function() {
-            const queryVal = document.getElementById('global-search').value.toLowerCase().trim();
-            const dropdown = document.getElementById('search-dropdown');
-            if (queryVal.length < 2) { dropdown.style.display = 'none'; return; }
-
-            const matches = cachedCars.filter(car => car.Model.toLowerCase().includes(queryVal))
-                .sort((a, b) => a.Model.localeCompare(b.Model))
-                .slice(0, 10); // Limit suggestions for speed
-                
-            renderSuggestions(matches);
-        };
-
-        function renderSuggestions(matches) {
-            const dropdown = document.getElementById('search-dropdown');
-            dropdown.innerHTML = "";
-            if (matches.length === 0) { dropdown.style.display = 'none'; return; }
-
-            matches.forEach(car => {
-                const div = document.createElement("div");
-                div.className = "search-suggestion";
-                const type = car["Super TH"] ? "STH" : (car["TH"] ? "TH" : "Mainline");
-                div.innerHTML = `<span class="suggestion-type">${type}</span>${car.Model}`;
-                div.onclick = () => window.location.href = `carinfo.html?id=${car.id}`;
-                dropdown.appendChild(div);
-            });
-            dropdown.style.display = 'block';
-        }
-
         function sortCars(carList) {
             return carList.sort((a, b) => {
                 // 1. Super THs first

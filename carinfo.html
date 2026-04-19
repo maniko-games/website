@@ -35,6 +35,7 @@
                 <img id="car-image" src="" style="max-width: 100%; max-height: 100%; object-fit: contain;">
             </div>
             <h1 id="car-model">---</h1>
+            <p id="car-year"><strong>Year: ---</strong></p>
             <p id="car-case">Case: ---</p>
             <div id="car-type" style="font-weight: bold; margin-top: 15px; padding: 10px; border-radius: 8px;"></div>
             <div id="collection-controls" style="display: none; margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; gap: 10px; justify-content: center; flex-wrap: wrap;">
@@ -69,19 +70,22 @@
         if (carId) {
             const parts = carId.split('-');
             const tempName = parts.slice(0, -2).join(' ').toUpperCase();
-            const year = parts[parts.length - 1];
+            const yearPart = parts[parts.length - 1]; // Renamed to yearPart
             const caseLetter = parts[parts.length - 2];
 
             document.title = tempName + " - Maniko HW DB";
-            
+
+            // Logic to handle 2-digit years (like '26') vs 4-digit years
+            let fullYear = yearPart.length === 2 ? `20${yearPart}` : yearPart;
+
             // Set placeholders immediately
             document.getElementById("car-model").innerText = tempName;
             adjustDetailsTitleSize();
-            document.getElementById("car-case").innerText = `Case: ${caseLetter} - ${year}`;
 
-            // 🔥 NEW: Start the image download IMMEDIATELY
-            // We guess the extension is .jpg; if it's .webp, the renderCarDetails will fix it later
-            document.getElementById("car-image").src = `Cars/${carId}.jpg`; 
+            document.getElementById("car-year").innerHTML = `<strong>Year:</strong> ${fullYear}`;
+            
+            // FIX: Use 'yearPart' here instead of 'year'
+            document.getElementById("car-case").innerText = `Case: ${caseLetter} - ${yearPart}`;
         }
 
         // --- 1. DATA PRELOAD (PARALLEL FETCHING) ---
@@ -140,6 +144,15 @@
             document.getElementById("car-model").innerText = data.Model;
             adjustDetailsTitleSize();
             
+            if (data.Year) {
+                let yearValue = (typeof data.Year === 'string') ? data.Year.split('/').pop() : data.Year.id;
+                
+                if (yearValue) {
+                    // Apply the bold label here too
+                    document.getElementById("car-year").innerHTML = `<strong>Year:</strong> ${yearValue}`;
+                }
+            }
+
             const cases = Array.isArray(data.Case) ? data.Case : [data.Case];
             document.getElementById("car-case").innerHTML = "<strong>Case:</strong> " + cases.map(c => 
                 `<a href="case.html?name=${encodeURIComponent(c)}" style="color: #2196F3; text-decoration: none; border-bottom: 1px dashed #2196F3;">${c}</a>`
@@ -169,7 +182,19 @@
 
             // Only search for a dud if cachedCars is loaded
             if (data["Super TH"] && cachedCars.length > 0) {
-                dudCar = cachedCars.find(c => c.Model === data.Model && c["Super TH"] === false);
+                const currentCases = Array.isArray(data.Case) ? data.Case : [data.Case];
+                
+                dudCar = cachedCars.find(c => {
+                    // 1. Must be the same model
+                    const sameModel = c.Model === data.Model;
+                    // 2. Must NOT be an STH
+                    const isMainline = c["Super TH"] === false;
+                    // 3. Must share at least one case (prevents year mismatch)
+                    const carCases = Array.isArray(c.Case) ? c.Case : [c.Case];
+                    const sharedCase = carCases.some(val => currentCases.includes(val));
+
+                    return sameModel && isMainline && sharedCase;
+                });
             }
 
             if (dudCar) {
@@ -246,24 +271,6 @@
                 `;
                 grid.appendChild(card);
             });
-        }
-
-        // --- SEARCH & SLIDER HELPERS ---
-        window.handleGlobalSearch = function() {
-            const queryVal = document.getElementById('global-search').value.toLowerCase().trim();
-            const dropdown = document.getElementById('search-dropdown');
-            if (queryVal.length < 2) { dropdown.style.display = 'none'; return; }
-            const matches = cachedCars.filter(car => car.Model.toLowerCase().includes(queryVal)).slice(0, 10);
-            
-            dropdown.innerHTML = "";
-            matches.forEach(car => {
-                const div = document.createElement("div");
-                div.className = "search-suggestion";
-                div.innerHTML = car.Model;
-                div.onclick = () => window.location.href = `carinfo.html?id=${car.id}`;
-                dropdown.appendChild(div);
-            });
-            dropdown.style.display = 'block';
         }
 
         function activateSlider() {
