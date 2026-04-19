@@ -165,3 +165,85 @@ window.addEventListener('mousedown', (event) => {
         }
     }
 });
+
+import { arrayUnion, arrayRemove, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+// Centralized Toggle Logic
+window.toggleOwnership = async function(type, carId, buttonElement) {
+    const user = auth.currentUser;
+    if (!user) {
+        window.openAuth();
+        return;
+    }
+
+    const userRef = doc(db, "users", user.uid);
+    const isAdding = !buttonElement.classList.contains('active');
+
+    try {
+        await setDoc(userRef, {
+            [type]: isAdding ? arrayUnion(carId) : arrayRemove(carId)
+        }, { merge: true });
+
+        // Update the specific button that was clicked
+        window.updateButtonUI(buttonElement, type, isAdding);
+    } catch (e) {
+        console.error("Collection Error:", e);
+    }
+};
+
+// Centralized UI Updater
+window.updateButtonUI = function(btn, type, isActive) {
+    if (!btn) return;
+    btn.classList.toggle('active', isActive);
+
+    // Check if it's a "mini" button or a "large" detail button
+    const isLarge = btn.id.startsWith('btn-'); 
+
+    if (type === 'collection') {
+        if (isLarge) {
+            btn.innerHTML = isActive ? "In Collection" : "Add to Collection";
+        } else {
+            btn.innerHTML = isActive ? "✅" : "➕";
+        }
+    } else {
+        if (isLarge) {
+            btn.innerHTML = isActive ? "In Wishlist" : "Add to Wishlist";
+        } else {
+            btn.innerHTML = isActive ? "❤️" : "🩶";
+        }
+    }
+};
+
+window.checkGridStatuses = async function() {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+        const userSnap = await getDoc(doc(db, "users", user.uid));
+        if (!userSnap.exists()) return;
+
+        const userData = userSnap.data();
+        const owned = userData.collection || [];
+        const wish = userData.wishlist || [];
+
+        const items = document.querySelectorAll('.car-item');
+        items.forEach(item => {
+            // Extracts the ID from the URL (e.g., carinfo.html?id=car-123 -> car-123)
+            const id = item.getAttribute('href').split('id=')[1];
+            const collBtn = item.querySelector('.collection-btn');
+            const wishBtn = item.querySelector('.wishlist-btn');
+
+            if (collBtn) window.updateButtonUI(collBtn, 'collection', owned.includes(id));
+            if (wishBtn) window.updateButtonUI(wishBtn, 'wishlist', wish.includes(id));
+        });
+    } catch (e) {
+        console.error("Error checking grid statuses:", e);
+    }
+};
+
+// Automatically open login if the URL says so
+if (new URLSearchParams(window.location.search).get('auth') === 'required') {
+    setTimeout(() => {
+        if (window.openAuth) window.openAuth();
+    }, 500);
+}

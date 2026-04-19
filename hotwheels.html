@@ -28,9 +28,73 @@
     <meta property="og:url" content="https://maniko.games/hotwheels.html">
 </head>
 
-<div class="header-spacer"></div>
-
 <body style="font-family: sans-serif; text-align: center; padding: 20px; background-color: #f9f9f9;">
+
+    <div class="header-spacer"></div>
+
+    <div style="margin: 20px auto; padding: 20px; background: white; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+        <h2>My Garage</h2>
+        <div style="display: flex; justify-content: center; gap: 30px; margin: 10px 0;">
+            <a href="my-collection.html" onclick="return checkLogin(event)" style="text-decoration: none; flex: 1; max-width: 200px; padding: 20px; border: 2px solid #2196F3; border-radius: 15px; transition: transform 0.2s;">
+                <div style="font-size: 2.5em; margin-bottom: 10px;">🏠</div>
+                <div style="font-weight: bold; color: #2196F3;">My Collection</div>
+                <div style="font-size: 0.8em; color: #666; margin-top: 5px;">Cars I Own</div>
+            </a>
+            <a href="my-collection.html?type=wishlist" onclick="return checkLogin(event)" style="text-decoration: none; flex: 1; max-width: 200px; padding: 20px; border: 2px solid #e91e63; border-radius: 15px; transition: transform 0.2s;">
+                <div style="font-size: 2.5em; margin-bottom: 10px;">❤️</div>
+                <div style="font-weight: bold; color: #e91e63;">My Wishlist</div>
+                <div style="font-size: 0.8em; color: #666; margin-top: 5px;">Cars I Want</div>
+            </a>
+        </div>
+    </div>
+
+    <div style="margin: 20px auto; padding: 20px; background: white; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+        <h2>Cases</h2>
+        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+            
+            <select id="jump-year" style="padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 1em; cursor: pointer; margin: 5px;">
+                <option value="2026">2026</option>
+                <option value="2025">2025</option>
+                <option value="2024">2024</option>
+            </select>
+
+            <select id="jump-case" style="padding: 10px; border-radius: 8px; border: 1px solid #ddd; font-size: 1em; cursor: pointer; margin: 5px;">
+                <option value="A">Case A</option>
+                <option value="B">Case B</option>
+                <option value="C">Case C</option>
+                <option value="D">Case D</option>
+                <option value="E">Case E</option>
+                <option value="F">Case F</option>
+                <option value="G">Case G</option>
+                <option value="H">Case H</option>
+                <option value="J">Case J</option>
+                <option value="K">Case K</option>
+                <option value="L">Case L</option>
+                <option value="M">Case M</option>
+                <option value="N">Case N</option>
+                <option value="P">Case P</option>
+                <option value="Q">Case Q</option>
+            </select>
+
+            <button onclick="jumpToCase()" style="padding: 10px 25px; border-radius: 8px; border: none; background: #2196F3; color: white; font-weight: bold; cursor: pointer; transition: background 0.2s;">
+                Open
+            </button>
+        </div>
+    </div>
+
+    <div style="margin: 20px auto; padding: 20px; background: white; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+        <h2>Treasures</h2>
+        <div style="display: flex; justify-content: center; gap: 60px; margin: 20px 0; padding: 10px; background: white; border-radius: 15px;">
+            <a href="treasures.html?type=STH" style="text-decoration: none; text-align: center;">
+                <img src="https://github.com/maniko-games/website/blob/main/Images/sth.webp?raw=true" alt="STH" style="height: 120px; display: block; margin: auto;">
+                <span style="font-size: 1em; color: #ff0000; font-weight: bold;">Super Treasure Hunts</span>
+            </a>
+            <a href="treasures.html?type=TH" style="text-decoration: none; text-align: center;">
+                <img src="https://github.com/maniko-games/website/blob/main/Images/th.png?raw=true" alt="TH" style="height: 120px; display: block; margin: auto;">
+                <span style="font-size: 1em; color: #000000; font-weight: bold;">Treasure Hunts</span>
+            </a>
+        </div>
+    </div>
     
     <div style="margin: -5px auto; padding: 20px; background: white; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
         <h2 id="featured-title" >Featured Cars</h2>
@@ -61,62 +125,27 @@
     </div>
 </div>
 
-<div style="margin: 20px auto; padding: 20px; background: white; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-    <h2>Case Jump</h2>
-    <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-        
-        <select id="jump-year" style="padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 1em; cursor: pointer; margin: 5px;">
-            <option value="2026">2026</option>
-            <option value="2025">2025</option>
-            <option value="2024">2024</option>
-        </select>
-
-        <select id="jump-case" style="padding: 10px; border-radius: 8px; border: 1px solid #ddd; font-size: 1em; cursor: pointer; margin: 5px;">
-            <option value="A">Case A</option>
-            <option value="B">Case B</option>
-            <option value="C">Case C</option>
-            <option value="D">Case D</option>
-            <option value="E">Case E</option>
-            <option value="F">Case F</option>
-            <option value="G">Case G</option>
-            <option value="H">Case H</option>
-            <option value="J">Case J</option>
-            <option value="K">Case K</option>
-            <option value="L">Case L</option>
-            <option value="M">Case M</option>
-            <option value="N">Case N</option>
-            <option value="P">Case P</option>
-            <option value="Q">Case Q</option>
-        </select>
-
-        <button onclick="jumpToCase()" style="padding: 10px 25px; border-radius: 8px; border: none; background: #2196F3; color: white; font-weight: bold; cursor: pointer; transition: background 0.2s;">
-            Open
-        </button>
-    </div>
-</div>
-
-<div style="margin: 20px auto; padding: 20px; background: white; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-    <h2>Collection Jump</h2>
-    <div style="display: flex; justify-content: center; gap: 60px; margin: 20px 0; padding: 10px; background: white; border-radius: 15px;">
-        <a href="treasures.html?type=STH" style="text-decoration: none; text-align: center;">
-            <img src="https://github.com/maniko-games/website/blob/main/Images/sth.webp?raw=true" alt="STH" style="height: 120px; display: block; margin: auto;">
-            <span style="font-size: 1em; color: #ff0000; font-weight: bold;">Super Treasure Hunts</span>
-        </a>
-        <a href="treasures.html?type=TH" style="text-decoration: none; text-align: center;">
-            <img src="https://github.com/maniko-games/website/blob/main/Images/th.png?raw=true" alt="TH" style="height: 120px; display: block; margin: auto;">
-            <span style="font-size: 1em; color: #000000; font-weight: bold;">Treasure Hunts</span>
-        </a>
-    </div>
-</div>
-
 <script type="module">
     import { injectSharedUI } from './components.js';
     injectSharedUI();
 
-    import { app, db, adjustFontSizes } from './app.js';
+    import { app, auth, db, adjustFontSizes } from './app.js';
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
     import { collection, query, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    window.checkLogin = function(e) {
+        if (!auth.currentUser) {
+            e.preventDefault(); // Stop the page from opening
+            if (window.openAuth) {
+                window.openAuth(); // Open the login modal
+            } else {
+                alert("Please login to view your garage.");
+            }
+            return false;
+        }
+        return true;
+    };
 
     const storage = getStorage(app);
 

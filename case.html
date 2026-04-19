@@ -19,20 +19,30 @@
 
 
 <body style="font-family: sans-serif; text-align: center; padding: 0 20px 20px 20px; background-color: #f9f9f9;">
+    <div class="header-spacer"></div>
     <h1 id="case-title" style="margin-top: 20px;">Loading Case...</h1>
+
+    <div id="case-filters" style="margin: 20px auto; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+        <button onclick="filterCase('all')" class="filter-btn active" id="filter-all">All</button>
+        <button onclick="filterCase('owned')" class="filter-btn" id="filter-owned">Collected</button>
+        <button onclick="filterCase('missing')" class="filter-btn" id="filter-missing">Missing</button>
+        <button onclick="filterCase('wishlist')" class="filter-btn" id="filter-wishlist">Wishlist</button>
+    </div>
+
     <div id="cars-grid"></div>
 
     <script type="module">
         import { injectSharedUI } from './components.js';
-        import { app, db, adjustFontSizes } from './app.js';
-        import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { app, db, adjustFontSizes, firebaseConfig, auth } from './app.js';
+        import { collection, getDocs, doc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { firebaseConfig } from './app.js';
+        import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         injectSharedUI();
 
         // --- SHARED DATA ---
         let cachedCars = [];
+        let caseMatches = []; // Store the specific case cars here for filtering
         const urlParams = new URLSearchParams(window.location.search);
         const caseName = urlParams.get('name'); // e.g. "D - 2026"
         const cleanCase = caseName || "Hot Wheels";
@@ -58,6 +68,14 @@
                     return cases.includes(caseName);
                 });
 
+                // Store matches globally so filterCase can see them
+                caseMatches = cachedCars.filter(car => {
+                    const cases = Array.isArray(car.Case) ? car.Case : [car.Case];
+                    return cases.includes(caseName);
+                });
+
+                renderGrid(sortCars(caseMatches));
+
                 // Sort: STH first, then TH, then Alpha
                 matches.sort((a, b) => {
                     if (b["Super TH"] !== a["Super TH"]) return b["Super TH"] - a["Super TH"];
@@ -71,6 +89,45 @@
                 grid.innerHTML = "<p>Error loading collection.</p>";
             }
         }
+
+        window.filterCase = async function(mode) {
+            // 1. Update active button UI
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`filter-${mode}`).classList.add('active');
+
+            if (mode === 'all') {
+                renderGrid(caseMatches);
+                return;
+            }
+
+            // 2. Get user data to compare
+            const user = auth.currentUser;
+            if (!user) {
+                window.openAuth();
+                return;
+            }
+
+            // Import getDoc/doc if not already available in this scope
+            const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+            const userSnap = await getDoc(doc(db, "users", user.uid));
+            const userData = userSnap.exists() ? userSnap.data() : {};
+            const ownedIds = userData.collection || [];
+            const wishIds = userData.wishlist || [];
+
+            // 3. Filter based on mode
+            let filtered;
+            if (mode === 'owned') {
+                filtered = caseMatches.filter(car => ownedIds.includes(car.id));
+            } else if (mode === 'missing') {
+                filtered = caseMatches.filter(car => !ownedIds.includes(car.id));
+            } else if (mode === 'wishlist') {
+                filtered = caseMatches.filter(car => wishIds.includes(car.id));
+            }
+
+            renderGrid(sortCars(filtered));
+
+            renderGrid(filtered);
+        };
 
         // --- 2. THE RENDER LOGIC ---
         function renderGrid(cars) {
@@ -93,20 +150,33 @@
                 carCard.className = "car-item"; // Use your CSS class for hover effects
 
                 carCard.innerHTML = `
-                    <div style="width: 100%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 8px; margin-bottom: 10px;">
-                        <img src="Cars/${carId}.${ext}" 
-                            loading="lazy" 
-                            style="width: 100%; height: 100%; object-fit: contain;">
+                    <div style="width: 100%; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: #eee; border-radius: 8px; margin-bottom: 10px;">
+                        <img src="Cars/${carId}.${ext}" loading="lazy" style="width: 100%; height: 100%; object-fit: contain;">
                     </div>
                     <h3>${carData.Model}</h3>
-                    <p style="font-weight: bold; color: ${typeColor};">${typeLabel}</p>
+                    <p style="font-weight: bold; color: ${typeColor}; margin-bottom: 10px;">${typeLabel}</p>
+                    
+                    <div class="grid-controls" style="display: flex; gap: 8px; justify-content: center; align-items: center; border-top: 1px solid #f0f0f0; padding-top: 10px;">
+                        <button onclick="event.preventDefault(); toggleOwnership('collection', '${carId}', this)" class="mini-btn collection-btn">➕</button>
+                        <button onclick="event.preventDefault(); toggleOwnership('wishlist', '${carId}', this)" class="mini-btn wishlist-btn">🩶</button>
+                    </div>
                 `;
                 grid.appendChild(carCard);
             });
 
+            if (auth.currentUser) {
+                window.checkGridStatuses(); 
+            }
+
             // Shrink long text to fit
             setTimeout(adjustFontSizes, 50);
         }
+
+        onAuthStateChanged(auth, (user) => {
+            if (user && document.querySelectorAll('.car-item').length > 0) {
+                window.checkGridStatuses();
+            }
+        });
 
         // Reuse cached data for the global search bar
         window.handleGlobalSearch = function() {
@@ -135,6 +205,17 @@
                 dropdown.appendChild(div);
             });
             dropdown.style.display = 'block';
+        }
+
+        function sortCars(carList) {
+            return carList.sort((a, b) => {
+                // 1. Super THs first
+                if (b["Super TH"] !== a["Super TH"]) return b["Super TH"] - a["Super TH"];
+                // 2. Regular THs second
+                if (b["TH"] !== a["TH"]) return b["TH"] - a["TH"];
+                // 3. Alphabetical by Model name
+                return a.Model.localeCompare(b.Model);
+            });
         }
 
         // Start everything

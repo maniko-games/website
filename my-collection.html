@@ -7,8 +7,47 @@
     <link rel="stylesheet" href="style.css?v=1.1">
 </head>
 <body style="font-family: sans-serif; text-align: center; padding: 0 20px 20px 20px; background-color: #f9f9f9;">
+
+    <div class="header-spacer"></div>
     
-    <h1 id="collection-title" style="margin-top: 20px;">My Collection</h1>
+    <h1 id="collection-title">My Collection</h1>
+
+    <div id="filters-container" style="margin: 20px auto; display: flex; gap: 15px; justify-content: center; align-items: center; max-width: 600px; padding: 0 10px;">
+        <div>
+            Filters:
+        </div>
+        <div style="flex: 1;">
+            <select id="year-select" onchange="applyFilters('year', this.value)" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; background: white; font-size: 16px; outline: none; cursor: pointer;">
+                <option value="All">All Years</option>
+                <option value="2026">2026</option>
+                <option value="2025">2025</option>
+                <option value="2024">2024</option>
+            </select>
+        </div>
+
+        <div style="flex: 1;">
+            <select id="case-select" onchange="applyFilters('case', this.value)" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; background: white; font-size: 16px; outline: none; cursor: pointer;">
+                <option value="All">All Cases</option>
+                <script>
+                    const cases = ['A','B','C','D','E','F','G','H','J','K','L','M','N','P','Q'];
+                    cases.forEach(c => document.write(`<option value="${c}">Case ${c}</option>`));
+                </script>
+            </select>
+        </div>
+
+        <div style="display: flex; gap: 10px; font-size: 0.9em; font-weight: bold; color: #333; margin-left: 10px;">
+            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                <input type="checkbox" id="sth-check" onchange="applyFilters()">STH
+            </label>
+            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                <input type="checkbox" id="th-check" onchange="applyFilters()">TH
+            </label>
+        </div>
+
+        <button onclick="resetFilters()" class="btn-reset">
+            Reset
+        </button>
+    </div>
     
     <div id="cars-grid">
         <p id="status-msg">Loading your collection...</p>
@@ -22,16 +61,22 @@
 
         injectSharedUI();
 
+        let fullUserCollection = [];
+        let activeFilters = {
+            year: 'All',
+            case: 'All',
+            sth: false,
+            th: false
+        };
+
         const urlParams = new URLSearchParams(window.location.search);
         const isWishlist = urlParams.get('type') === 'wishlist';
         
-        document.getElementById('collection-title').innerText = isWishlist ? "❤️ My Wishlist" : "🏠 My Collection";
+        document.getElementById('collection-title').innerText = isWishlist ? "My Wishlist" : "My Collection";
 
         onAuthStateChanged(auth, async (user) => {
             if (!user) {
-                document.getElementById('cars-grid').innerHTML = `
-                    <p style="margin-top: 50px;">Please <a href="#" onclick="openAuth()">Login</a> to view your collection.</p>
-                `;
+                window.location.href = "hotwheels.html?auth=required";
                 return;
             }
             loadUserCollection(user.uid);
@@ -39,10 +84,9 @@
 
         async function loadUserCollection(uid) {
             try {
-                // 1. Get the user's list of IDs from Firestore
                 const userDoc = await getDoc(doc(db, "users", uid));
                 if (!userDoc.exists()) {
-                    document.getElementById('cars-grid').innerHTML = "<p>Your collection is empty. Start adding cars!</p>";
+                    document.getElementById("cars-grid").innerHTML = "<p>Collection empty!</p>";
                     return;
                 }
 
@@ -50,43 +94,142 @@
                 const listToLoad = isWishlist ? (userData.wishlist || []) : (userData.collection || []);
 
                 if (listToLoad.length === 0) {
-                    document.getElementById('cars-grid').innerHTML = `<p>No cars in your ${isWishlist ? 'wishlist' : 'collection'} yet.</p>`;
+                    document.getElementById("cars-grid").innerHTML = `<p>No cars found.</p>`;
                     return;
                 }
 
-                // 2. Fetch all car data to match the IDs
                 const allCarsSnap = await getDocs(collection(db, "mainline-cars"));
                 const allCars = allCarsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-                // 3. Filter for only the cars the user owns
-                const myCars = allCars.filter(car => listToLoad.includes(car.id));
+                fullUserCollection = allCars.filter(car => listToLoad.includes(car.id));
+                
+                renderGrid(fullUserCollection);
 
-                renderGrid(myCars);
+                // Remove the loading message safely if it exists
+                const statusMsg = document.getElementById('status-msg');
+                if (statusMsg) statusMsg.style.display = 'none';
+
             } catch (e) {
-                console.error(e);
-                document.getElementById('status-msg').innerText = "Error loading collection.";
+                console.error("Load Error:", e);
+                const grid = document.getElementById("cars-grid");
+                if (grid) grid.innerHTML = "<p>Error loading collection.</p>";
             }
         }
 
+        // --- FILTER ENGINE ---
+        window.applyFilters = function(filterType, value) {
+            // 1. Only update the activeFilters object if we actually passed a type/value
+            if (filterType && value !== undefined) {
+                activeFilters[filterType] = value;
+                
+                // Ensure the dropdown UI stays in sync if manually triggered
+                const selectId = filterType === 'year' ? 'year-select' : 'case-select';
+                const el = document.getElementById(selectId);
+                if (el) el.value = value;
+            }
+
+            // 2. Always refresh checkbox states
+            activeFilters.sth = document.getElementById('sth-check').checked;
+            activeFilters.th = document.getElementById('th-check').checked;
+
+            const filtered = fullUserCollection.filter(car => {
+                const carCases = Array.isArray(car.Case) ? car.Case : [car.Case];
+                
+                // Year Match
+                const yearMatchBool = activeFilters.year === 'All' || carCases.some(c => {
+                    const yearMatch = c.match(/\d{4}$/);
+                    return yearMatch && yearMatch[0] === activeFilters.year;
+                });
+
+                // Case Letter Match
+                const caseMatchBool = activeFilters.case === 'All' || carCases.some(c => {
+                    const letter = c.trim().charAt(0).toUpperCase();
+                    return letter === activeFilters.case;
+                });
+
+                // Treasure Match Logic
+                let treasureMatch = true;
+                if (activeFilters.sth || activeFilters.th) {
+                    // If STH is checked, it must be an STH. If TH is checked, it must be a TH.
+                    // Using || allows showing both if both boxes are checked.
+                    treasureMatch = (activeFilters.sth && car["Super TH"]) || (activeFilters.th && car["TH"]);
+                }
+
+                // --- THE FIX: You must include treasureMatch here! ---
+                return yearMatchBool && caseMatchBool && treasureMatch;
+            });
+
+            renderGrid(filtered);
+        };
+
         function renderGrid(cars) {
             const grid = document.getElementById("cars-grid");
+            if (!grid) return;
             grid.innerHTML = "";
             
+            if (cars.length === 0) {
+                grid.innerHTML = "<p style='grid-column: 1/-1; margin-top: 20px;'>No cars match these filters.</p>";
+                return;
+            }
+
             cars.forEach(car => {
                 const ext = car.ImageExt || "jpg";
-                const card = document.createElement("a");
-                card.href = `carinfo.html?id=${car.id}`;
-                card.className = "car-item";
-                card.innerHTML = `
+                
+                // --- 1. NEW: Generate clickable links for each case ---
+                const cases = Array.isArray(car.Case) ? car.Case : [car.Case];
+                const caseLinks = cases.map(c => 
+                    `<span class="case-link" 
+                        onclick="event.preventDefault(); event.stopPropagation(); window.location.href='case.html?name=${encodeURIComponent(c)}'">
+                        ${c}
+                    </span>`
+                ).join(', ');
+
+                const carCard = document.createElement("a");
+                carCard.href = `carinfo.html?id=${car.id}`;
+                carCard.className = "car-item";
+                carCard.innerHTML = `
                     <div style="width: 100%; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; background: #eee; border-radius: 8px; overflow: hidden; margin-bottom: 10px;">
                         <img src="Cars/${car.id}.${ext}" loading="lazy" style="width: 100%; height: 100%; object-fit: contain;">
                     </div>
                     <h3>${car.Model}</h3>
+                    
+                    <p style="font-size: 0.85em; color: #666; margin-top: 8px;">
+                        <strong>Case:</strong> ${caseLinks}
+                    </p>
+
+                    <div class="grid-controls" style="display: flex; gap: 8px; justify-content: center; align-items: center; border-top: 1px solid #f0f0f0; padding-top: 10px; margin-top: 10px;">
+                        <button onclick="event.preventDefault(); toggleOwnership('collection', '${car.id}', this)" class="mini-btn collection-btn">➕</button>
+                        <button onclick="event.preventDefault(); toggleOwnership('wishlist', '${car.id}', this)" class="mini-btn wishlist-btn">🩶</button>
+                    </div>
                 `;
-                grid.appendChild(card);
+                grid.appendChild(carCard);
             });
+
+            if (window.checkGridStatuses) window.checkGridStatuses();
             adjustFontSizes();
         }
+
+        // --- RESET FILTERS LOGIC ---
+        window.resetFilters = function() {
+            // 1. Reset the data state
+            activeFilters = {
+                year: 'All',
+                case: 'All',
+                sth: false,
+                th: false
+            };
+
+            // 2. Reset the Dropdown UI
+            document.getElementById('year-select').value = 'All';
+            document.getElementById('case-select').value = 'All';
+
+            // 3. Reset the Checkbox UI
+            document.getElementById('sth-check').checked = false;
+            document.getElementById('th-check').checked = false;
+
+            // 4. Render the full collection again
+            renderGrid(fullUserCollection);
+        };
     </script>
 </body>
 </html>

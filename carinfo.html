@@ -24,7 +24,8 @@
 </head>
 
 <body style="font-family: sans-serif; text-align: center; padding: 0 20px 20px 20px; background-color: #f9f9f9;">
-
+    <div class="header-spacer"></div>
+    
     <div id="details-container" style="max-width: 540px; margin: 0 auto; background: white; border-radius: 15px; padding: 30px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
         
         <div id="loading" style="font-style: italic; color: #999; margin-bottom: 10px;">Loading details...</div>
@@ -37,11 +38,11 @@
             <p id="car-case">Case: ---</p>
             <div id="car-type" style="font-weight: bold; margin-top: 15px; padding: 10px; border-radius: 8px;"></div>
             <div id="collection-controls" style="display: none; margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                <button id="btn-collection" onclick="toggleOwnership('collection')" style="padding: 10px 15px; border-radius: 8px; border: 1px solid #2196F3; background: white; color: #2196F3; cursor: pointer; font-weight: bold; transition: 0.2s;">
-                    🏠 Add to Collection
+                <button id="btn-collection" class="btn-main btn-collection">
+                    Add to Collection
                 </button>
-                <button id="btn-wishlist" onclick="toggleOwnership('wishlist')" style="padding: 10px 15px; border-radius: 8px; border: 1px solid #e91e63; background: white; color: #e91e63; cursor: pointer; font-weight: bold; transition: 0.2s;">
-                    ❤️ Add to Wishlist
+                <button id="btn-wishlist" class="btn-main btn-wishlist">
+                    Add to Wishlist
                 </button>
             </div>
         </div>
@@ -116,6 +117,18 @@
                 
             } catch (e) {
                 console.error("Data Load Error:", e);
+            }
+        }
+
+        async function setupCollectionButtons() {
+            const collBtn = document.getElementById('btn-collection');
+            const wishBtn = document.getElementById('btn-wishlist');
+
+            if (collBtn) {
+                collBtn.onclick = () => window.toggleOwnership('collection', carId, collBtn);
+            }
+            if (wishBtn) {
+                wishBtn.onclick = () => window.toggleOwnership('wishlist', carId, wishBtn);
             }
         }
 
@@ -277,52 +290,18 @@
 
         loadData();
 
-        // --- COLLECTION LOGIC ---
-        window.toggleOwnership = async function(type) {
-            const user = auth.currentUser;
-            if (!user) {
-                openAuth();
-                return;
-            }
-
-            const userRef = doc(db, "users", user.uid);
-            const btn = document.getElementById(`btn-${type}`);
-            const isAdding = !btn.classList.contains('active');
-
-            try {
-                // We use setDoc with merge:true in case the user document doesn't exist yet
-                await setDoc(userRef, {
-                    [type]: isAdding ? arrayUnion(carId) : arrayRemove(carId)
-                }, { merge: true });
-
-                updateButtonUI(type, isAdding);
-            } catch (e) {
-                console.error("Error updating collection:", e);
-            }
-        };
-
-        function updateButtonUI(type, isActive) {
-            const btn = document.getElementById(`btn-${type}`);
-            if (type === 'collection') {
-                btn.innerHTML = isActive ? "✅ In Collection" : "🏠 Add to Collection";
-                btn.style.background = isActive ? "#2196F3" : "white";
-                btn.style.color = isActive ? "white" : "#2196F3";
-            } else {
-                btn.innerHTML = isActive ? "💖 In Wishlist" : "❤️ Add to Wishlist";
-                btn.style.background = isActive ? "#e91e63" : "white";
-                btn.style.color = isActive ? "white" : "#e91e63";
-            }
-            btn.classList.toggle('active', isActive);
-        }
-
         // Check if user already owns this car when the page loads
         async function checkCurrentStatus(user) {
             if (!user) return;
             const userSnap = await getDoc(doc(db, "users", user.uid));
             if (userSnap.exists()) {
                 const data = userSnap.data();
-                if (data.collection?.includes(carId)) updateButtonUI('collection', true);
-                if (data.wishlist?.includes(carId)) updateButtonUI('wishlist', true);
+                const collBtn = document.getElementById('btn-collection');
+                const wishBtn = document.getElementById('btn-wishlist');
+
+                // Use window.updateButtonUI (the global one from app.js)
+                if (data.collection?.includes(carId)) window.updateButtonUI(collBtn, 'collection', true);
+                if (data.wishlist?.includes(carId)) window.updateButtonUI(wishBtn, 'wishlist', true);
             }
             document.getElementById('collection-controls').style.display = 'flex';
         }
@@ -355,6 +334,8 @@
                 title.style.fontSize = fontSize + 'px';
             }
         }
+
+        setupCollectionButtons();
     </script>
 
     <div id="lightbox" onclick="this.style.display='none'">
