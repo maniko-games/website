@@ -37,7 +37,8 @@
 
         <div id="case-container" style="display: flex; flex-direction: column; gap: 5px;">
             <label style="font-size: 0.8em; color: #666;">Select Case(s):</label>
-            </div>
+        </div>
+
         <button type="button" id="btnAddCase" style="margin-bottom: 10px; padding: 5px; cursor: pointer; background: #ddd; border: 1px solid #ccc; font-size: 0.8em;">
             + Add another Case
         </button>
@@ -158,12 +159,6 @@
             if (e.target.classList.contains("case-select")) generateId();
         });
 
-        // --- ADD CASE (Fixed: Only one listener now) ---
-        document.getElementById("btnAddCase").addEventListener("click", () => {
-            const caseContainer = document.getElementById("case-container");
-            caseContainer.appendChild(createCaseRow());
-        });
-
         // --- COPY LOGIC ---
         document.getElementById("btnCopy").addEventListener("click", () => {
             if (!idOutput.value) return;
@@ -235,7 +230,8 @@
                 return;
             }
 
-            const extension = file ? file.name.split('.').pop().toLowerCase() : "jpg";
+            let extension = file ? file.name.split('.').pop().toLowerCase() : "jpg";
+            if (extension === "jpeg") extension = "jpg"; // Force jpeg to jpg
             const fileName = `${finalId}.${extension}`;
 
             try {
@@ -388,7 +384,8 @@
                     grid.appendChild(row);
 
                     try {
-                        const imgUrl = await getDownloadURL(ref(storage, `${car.id}.${car.ImageExt || 'jpg'}`));
+                        const ext = car.ImageExt;
+                        const imgUrl = await getDownloadURL(ref(storage, `${car.id}.${ext}`));
                         const imgElement = document.getElementById(`prev-${car.id}`);
                         if (imgElement) imgElement.src = imgUrl;
                     } catch (err) {
@@ -475,11 +472,6 @@
             filtered.forEach(s => {
                 seriesSelect.innerHTML += `<option value="${s.id}">${s.Name}</option>`;
             });
-
-            // Ensure the "Add Case" button listener stays active
-            document.getElementById("btnAddCase").onclick = () => {
-                document.getElementById("case-container").appendChild(createCaseRow());
-            };
         };
 
         window.loadCarForEdit = async function(data) {
@@ -535,15 +527,24 @@
             try {
                 const { getDownloadURL, ref } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js");
                 const storage = getStorage(app);
-                const imgUrl = await getDownloadURL(ref(storage, `${data.id}.${data.ImageExt || 'jpg'}`));
+                const ext = data.ImageExt || "jpg";
+                const imgUrl = await getDownloadURL(ref(storage, `${data.id}.${ext}`));
                 
                 previewImg.src = imgUrl;
                 previewImg.style.display = "block";
                 previewPlaceholder.style.display = "none";
             } catch (err) {
-                console.warn("Could not load preview image");
-                previewImg.style.display = "none";
-                previewPlaceholder.style.display = "block";
+                // If the stored extension fails (like the civic .jpeg error), try a .jpg fallback
+                try {
+                    const fallbackUrl = await getDownloadURL(ref(storage, `${data.id}.jpg`));
+                    previewImg.src = fallbackUrl;
+                    previewImg.style.display = "block";
+                    previewPlaceholder.style.display = "none";
+                } catch (fallbackErr) {
+                    console.warn("Could not load preview image");
+                    previewImg.style.display = "none";
+                    previewPlaceholder.style.display = "block";
+                }
             }
 
             // 5. Visual Cue: Change the Save button to indicate Edit Mode
@@ -579,6 +580,11 @@
             `;
             return row;
         }
+
+        document.getElementById("btnAddCase").onclick = () => {
+            const container = document.getElementById("case-container");
+            container.appendChild(createCaseRow());
+        };
 
         populateDropdowns();
     </script>
