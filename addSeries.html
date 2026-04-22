@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Add New Series - Admin</title>
+    <link rel="icon" type="image/png" href="https://github.com/maniko-games/website/blob/main/Images/th.png?raw=true">
+    <link rel="stylesheet" href="style.css?v=1.1">
+</head>
+<body style="font-family: sans-serif; padding: 40px; max-width: 500px; margin: auto; text-align: center;">
+
+    <div class="header-spacer"></div>
+
+    <h1>Create New Series</h1>
+    
+    <div style="display: flex; flex-direction: column; gap: 15px; text-align: left; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+        
+        <div>
+            <label style="font-weight: bold; color: #666;">Series Name</label>
+            <input type="text" id="seriesName" placeholder="e.g. HW J-Imports" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; margin-top: 5px;">
+        </div>
+
+        <div>
+            <label style="font-weight: bold; color: #666;">Total Cars in Set</label>
+            <input type="number" id="totalCars" placeholder="10" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; margin-top: 5px;">
+        </div>
+
+        <div>
+            <label style="font-weight: bold; color: #666;">Year</label>
+            <select id="yearSelect" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; margin-top: 5px;">
+                <option value="">Loading years...</option>
+            </select>
+        </div>
+
+        <button id="btnSaveSeries" style="padding: 12px; cursor: pointer; background: #2196F3; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 1.1em; margin-top: 10px;">
+            Save Series 💾
+        </button>
+
+        <p id="status" style="text-align: center; font-weight: bold; margin-top: 10px;"></p>
+    </div>
+
+    <script type="module">
+        import { db, auth } from './app.js';
+        import { doc, setDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { injectSharedUI } from './components.js';
+
+        injectSharedUI();
+
+        const status = document.getElementById("status");
+
+        // 1. Populate Years Dropdown
+        async function loadYears() {
+            const yearSelect = document.getElementById('yearSelect');
+            try {
+                const querySnapshot = await getDocs(collection(db, "years"));
+                yearSelect.innerHTML = '<option value="">-- Select Year --</option>';
+                querySnapshot.forEach((yearDoc) => {
+                    yearSelect.innerHTML += `<option value="${yearDoc.id}">${yearDoc.id}</option>`;
+                });
+            } catch (e) {
+                console.error("Error loading years:", e);
+            }
+        }
+
+        // 2. Slugify the Name for Document ID (e.g., "HW J-Imports" -> "hw-j-imports-2026")
+        function generateSeriesId(name, year) {
+            return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '-' + year;
+        }
+
+        // 3. Save Logic
+        document.getElementById("btnSaveSeries").onclick = async () => {
+            const name = document.getElementById("seriesName").value.trim();
+            const total = parseInt(document.getElementById("totalCars").value);
+            const year = document.getElementById("yearSelect").value;
+
+            if (!name || !total || !year) {
+                alert("Please fill all fields!");
+                return;
+            }
+
+            const seriesId = generateSeriesId(name, year);
+
+            try {
+                status.innerText = "⏳ Saving...";
+                
+                await setDoc(doc(db, "series", seriesId), {
+                    Name: name,
+                    TotalCars: total,
+                    Year: doc(db, "years", year) // Reference to the year doc
+                });
+
+                status.style.color = "green";
+                status.innerText = `✅ Series "${name}" created!`;
+                
+                // Reset form
+                document.getElementById("seriesName").value = "";
+                document.getElementById("totalCars").value = "";
+                
+            } catch (e) {
+                console.error("Error saving series:", e);
+                status.style.color = "red";
+                status.innerText = "❌ Error: " + e.message;
+            }
+        };
+
+        loadYears();
+    </script>
+</body>
+</html>

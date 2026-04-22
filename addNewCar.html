@@ -363,16 +363,21 @@
                     return;
                 }
 
-                matches.forEach(async (car) => {
+                matches.forEach((car) => {
                     const row = document.createElement("div");
                     row.style = "display: flex; gap: 10px; align-items: center; background: white; padding: 5px; border-radius: 5px; border: 1px solid #eee; cursor: pointer;";
                     row.onclick = () => window.loadCarForEdit(car);
                     
                     const type = car["Super TH"] ? "STH" : (car["TH"] ? "TH" : "Mainline");
                     const cases = Array.isArray(car.Case) ? car.Case.join(', ') : car.Case;
+                    
+                    // Use the stored extension or default to jpg
+                    const ext = car.ImageExt || "jpg";
+                    const localImgPath = `Cars/${car.id}.${ext}`; 
 
                     row.innerHTML = `
-                        <img id="prev-${car.id}" class="admin-prev-img" src="" 
+                        <img class="admin-prev-img" src="${localImgPath}" 
+                            onerror="this.src='https://github.com/maniko-games/website/blob/main/Images/sth.webp?raw=true'; this.onerror=null;"
                             style="height: 50px; width: 50px; object-fit: contain; background: #f9f9f9; border-radius: 4px;">
                         <div style="text-align: left; font-size: 0.85em;">
                             <div style="font-weight: bold;">${car.Model}</div>
@@ -382,15 +387,6 @@
                         </div>
                     `;
                     grid.appendChild(row);
-
-                    try {
-                        const ext = car.ImageExt;
-                        const imgUrl = await getDownloadURL(ref(storage, `${car.id}.${ext}`));
-                        const imgElement = document.getElementById(`prev-${car.id}`);
-                        if (imgElement) imgElement.src = imgUrl;
-                    } catch (err) {
-                        console.warn("No image for " + car.id);
-                    }
                 });
 
             } catch (e) {
@@ -524,28 +520,19 @@
             const previewImg = document.getElementById("edit-preview-img");
             const previewPlaceholder = document.getElementById("edit-preview-placeholder");
 
-            try {
-                const { getDownloadURL, ref } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js");
-                const storage = getStorage(app);
-                const ext = data.ImageExt || "jpg";
-                const imgUrl = await getDownloadURL(ref(storage, `${data.id}.${ext}`));
-                
-                previewImg.src = imgUrl;
-                previewImg.style.display = "block";
-                previewPlaceholder.style.display = "none";
-            } catch (err) {
-                // If the stored extension fails (like the civic .jpeg error), try a .jpg fallback
-                try {
-                    const fallbackUrl = await getDownloadURL(ref(storage, `${data.id}.jpg`));
-                    previewImg.src = fallbackUrl;
-                    previewImg.style.display = "block";
-                    previewPlaceholder.style.display = "none";
-                } catch (fallbackErr) {
-                    console.warn("Could not load preview image");
-                    previewImg.style.display = "none";
-                    previewPlaceholder.style.display = "block";
-                }
-            }
+            const ext = data.ImageExt || "jpg";
+            const localUrl = `Cars/${data.id}.${ext}`; 
+
+            previewImg.src = localUrl;
+            previewImg.style.display = "block";
+            previewPlaceholder.style.display = "none";
+
+            // Reset the error handler for the next image
+            previewImg.onerror = () => {
+                previewImg.style.display = "none";
+                previewPlaceholder.style.display = "block";
+                previewPlaceholder.innerText = "Local Image Not Found";
+            };
 
             // 5. Visual Cue: Change the Save button to indicate Edit Mode
             const btnSave = document.getElementById("btnSave");

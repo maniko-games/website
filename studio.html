@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Maniko Studio Backdrop</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden; /* Prevent scrolling */
+            font-family: 'Arial Black', 'Helvetica Bold', sans-serif; /* Bold, industrial font */
+            background: #222; /* Fallback color */
+        }
+
+        /* 1. The Garage Background Image */
+        #studio-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            /* UPDATE THIS URL TO YOUR GARAGE IMAGE */
+            background-image: url('Images/studio-bg.jpg');
+            background-size: cover;
+            background-position: center;
+            filter: grayscale(20%) brightness(70%); /* Desaturate/dim to make text pop */
+            z-index: 1;
+        }
+
+        /* 2. Overlays & Gradients for readability */
+        #studio-screen::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            /* Dark gradient on the left for text, clear on the right for the car */
+            background: linear-gradient(to right, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 60%);
+            z-index: 2;
+        }
+
+        /* 3. The Information Block (Matches your sketch) */
+        /* Update your #data-block selector with these lines */
+        #data-block {
+            border-left: 5px solid #FF9800; /* Match the Hot Wheels Orange */
+            position: absolute;
+            top: 50%;
+            left: 5%;
+            transform: translateY(-50%);
+            width: 30%; /* Slightly narrowed for a tighter look */
+            color: white;
+            z-index: 10;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+
+            /* --- THE NEW BARELY VISIBLE BG --- */
+            background: rgba(255, 255, 255, 0.1); /* 10% white (20% might be too strong, but try both!) */
+            padding: 40px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1); /* Subtle border edge */
+            backdrop-filter: blur(10px); /* Optional: This creates a frosted glass effect */
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); /* Deep shadow to separate from background */
+        }
+
+        /* Styling the Label/Value pairs */
+        .data-pair {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 25px; /* Industrial spacing */
+            border-bottom: 2px solid rgba(255,255,255,0.1);
+            padding-bottom: 5px;
+        }
+
+        .data-label {
+            color: #aaa; /* Dimmed label */
+            text-transform: uppercase;
+            font-size: 1em;
+            letter-spacing: 2px;
+        }
+
+        .data-value {
+            color: #eee;
+            font-size: 1.4em;
+            text-align: right;
+        }
+
+        /* The big model title */
+        #model-title {
+            font-size: 2.4em;
+            color: #FF9800; /* Signature Hot Wheels Orange */
+            margin-bottom: 40px;
+            margin-top: 0;
+            text-transform: uppercase;
+            line-height: 1.1;
+        }
+
+        /* Special STH/TH indicator */
+        #treasure-indicator {
+            position: absolute;
+            bottom: 5%;
+            left: 5%;
+            padding: 15px 30px;
+            background: #e74c3c; /* Fire Red for STH */
+            color: white;
+            font-weight: bold;
+            font-size: 1.5em;
+            border-radius: 5px;
+            display: none; /* Hidden by default */
+            z-index: 11;
+        }
+
+        /* The loading state */
+        #loading-msg {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 2em;
+            z-index: 100;
+        }
+
+    </style>
+</head>
+<body>
+    <div id="no-id-container" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; background: rgba(255,255,255,0.1); padding: 40px; border-radius: 20px; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); text-align: center; color: white;">
+        <h2 style="margin-top: 0; text-transform: uppercase; letter-spacing: 2px;">Enter Car ID for Studio</h2>
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <input type="text" id="manual-id-input" placeholder="e.g. 73-honda-civic-custom-m-2024" 
+                   style="padding: 12px; border-radius: 8px; border: none; width: 300px; font-family: sans-serif;">
+            <button onclick="openManualId()" 
+                    style="padding: 12px 25px; background: #FF9800; border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; text-transform: uppercase;">
+                Open 📸
+            </button>
+        </div>
+        <p style="font-size: 0.8em; color: #aaa; margin-top: 15px;">Tip: Copy the ID from the "Add Car" page or your URL</p>
+    </div>
+
+    <div id="loading-msg">INITIALIZING STUDIO...</div>
+
+    <div id="car-ghost-preview" style="position: absolute; right: 5%; top: 50%; transform: translateY(-50%); width: 45%; height: 60%; display: flex; align-items: center; justify-content: center; z-index: 5; opacity: 1;">
+        <img id="ghost-img" src="" style="max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 0 20px rgba(0,0,0,0.5));">
+    </div>
+
+    <div id="studio-screen"></div>
+
+    <div id="treasure-indicator"></div>
+
+    <div id="data-block" style="display: none;">
+        
+        <h1 id="model-title">LOADING...</h1>
+
+        <div class="data-pair">
+            <span class="data-label">Year:</span>
+            <span class="data-value" id="val-year">---</span>
+        </div>
+
+        <div class="data-pair">
+            <span class="data-label">Collector #:</span>
+            <span class="data-value" id="val-collector">---</span>
+        </div>
+
+        <div class="data-pair">
+            <span class="data-label">Series:</span>
+            <span class="data-value" id="val-series">---</span>
+        </div>
+
+        <div class="data-pair">
+            <span class="data-label">Series #:</span>
+            <span class="data-value" id="val-series-num">---</span>
+        </div>
+    </div>
+
+    <script type="module">
+        import { db } from './app.js';
+        import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const carId = urlParams.get('id');
+
+        window.openManualId = function() {
+            const id = document.getElementById('manual-id-input').value.trim();
+            if (id) {
+                window.location.search = `?id=${id}`;
+            }
+        };
+
+        async function initStudio() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const carId = urlParams.get('id');
+
+            if (!carId) {
+                document.getElementById('loading-msg').style.display = 'none';
+                document.getElementById('no-id-container').style.display = 'block';
+                
+                // Allow "Enter" key to work in the input
+                document.getElementById('manual-id-input').addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') window.openManualId();
+                });
+                return;
+            }
+
+            try {
+                // 1. Fetch car data
+                const docSnap = await getDoc(doc(db, "mainline-cars", carId));
+                if (!docSnap.exists()) {
+                    document.getElementById('loading-msg').innerText = "❌ CAR NOT FOUND IN DATABASE";
+                    return;
+                }
+
+                // --- FIX: Define 'data' here so it's available for the rest of the function ---
+                const data = docSnap.data();
+
+                // 2. Populate basic fields
+                document.getElementById("model-title").innerText = data.Model;
+                
+                const yearId = typeof data.Year === 'string' ? data.Year.split('/').pop() : data.Year.id;
+                document.getElementById("val-year").innerText = yearId;
+                
+                document.getElementById("val-collector").innerText = data.CollectorNumber ? `${data.CollectorNumber}/250` : "---";
+                document.getElementById("val-series-num").innerText = data.SeriesNumber ? `${data.SeriesNumber}/10` : "---";
+
+                // 3. Resolve Series Reference
+                if (data.Series) {
+                    try {
+                        const seriesSnap = await getDoc(data.Series);
+                        if (seriesSnap.exists()) {
+                            document.getElementById("val-series").innerText = seriesSnap.data().Name;
+                        }
+                    } catch (e) { console.error("Series error", e); }
+                } else {
+                    document.getElementById("val-series").innerText = "Mainline";
+                }
+
+                // 4. Handle STH/TH Indicator
+                const treasureDiv = document.getElementById("treasure-indicator");
+                if (data["Super TH"]) {
+                    treasureDiv.innerText = "SUPER TREASURE HUNT";
+                    treasureDiv.style.background = "#e67e22"; 
+                    treasureDiv.style.display = "block";
+                } else if (data["TH"]) {
+                    treasureDiv.innerText = "TREASURE HUNT";
+                    treasureDiv.style.background = "#95a5a6"; 
+                    treasureDiv.style.display = "block";
+                }
+
+                // 5. Ghost Preview (Using local file path as requested)
+                const ghostImg = document.getElementById("ghost-img");
+                if (ghostImg) {
+                    const ext = data.ImageExt || "jpg";
+                    ghostImg.src = `Cars/${carId}.${ext}`;
+                }
+
+                // Show the block and hide loading
+                document.getElementById('loading-msg').style.display = 'none';
+                document.getElementById('data-block').style.display = 'block';
+
+            } catch (e) {
+                console.error(e);
+                document.getElementById('loading-msg').innerText = "❌ FAILED TO INITIALIZE STUDIO";
+            }
+        }
+
+        // Toggle Ghost Image with 'H' key
+        window.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 'h') {
+                const ghostDiv = document.getElementById("car-ghost-preview");
+                if (ghostDiv) {
+                    ghostDiv.style.opacity = ghostDiv.style.opacity === "0" ? "0.3" : "0";
+                }
+            }
+        });
+
+        initStudio();
+    </script>
+</body>
+</html>

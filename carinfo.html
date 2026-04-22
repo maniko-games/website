@@ -36,8 +36,10 @@
             </div>
             <h1 id="car-model">---</h1>
             <p id="car-year"><strong>Year: ---</strong></p>
+            <p id="car-collector">Collector #: ---</p>
             <p id="car-case">Case: ---</p>
-            <div id="car-type" style="font-weight: bold; margin-top: 15px; padding: 10px; border-radius: 8px;"></div>
+            <p id="car-series">Series: ---</p>
+            <div id="car-type" style="font-weight: bold;"></div>
             <div id="collection-controls" style="display: none; margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; gap: 10px; justify-content: center; flex-wrap: wrap;">
                 <button id="btn-collection" class="btn-main btn-collection">
                     Add to Collection
@@ -137,27 +139,51 @@
         }
 
         // --- 2. MAIN RENDER LOGIC ---
-        function renderCarDetails(data) {
+        async function renderCarDetails(data) {
             const ext = data.ImageExt || "jpg";
             const mainImageUrl = `Cars/${carId}.${ext}`;
 
             document.getElementById("car-model").innerText = data.Model;
             adjustDetailsTitleSize();
             
+            // 1. Render Year
             if (data.Year) {
                 let yearValue = (typeof data.Year === 'string') ? data.Year.split('/').pop() : data.Year.id;
-                
-                if (yearValue) {
-                    // Apply the bold label here too
-                    document.getElementById("car-year").innerHTML = `<strong>Year:</strong> ${yearValue}`;
-                }
+                document.getElementById("car-year").innerHTML = `<strong>Year:</strong> ${yearValue}`;
             }
 
+            // 2. Render Collector #
+            const collectorNum = data.CollectorNumber || "---";
+            document.getElementById("car-collector").innerText = `Collector #: ${collectorNum}/250`;
+
+            // 3. Render Case links
             const cases = Array.isArray(data.Case) ? data.Case : [data.Case];
             document.getElementById("car-case").innerHTML = "<strong>Case:</strong> " + cases.map(c => 
                 `<a href="case.html?name=${encodeURIComponent(c)}" style="color: #2196F3; text-decoration: none; border-bottom: 1px dashed #2196F3;">${c}</a>`
             ).join(', ');
 
+            // 4. Render Series & Series # (Handling the Reference)
+            const seriesEl = document.getElementById("car-series");
+            if (data.Series) {
+                try {
+                    // Fetch the document the reference points to
+                    const seriesSnap = await getDoc(data.Series);
+                    if (seriesSnap.exists()) {
+                        const seriesData = seriesSnap.data();
+                        const sNum = data.SeriesNumber || "-";
+                        const sTotal = seriesData.TotalCars || "-";
+                        
+                        seriesEl.innerHTML = `<strong>Series:</strong> ${seriesData.Name} (${sNum}/${sTotal})`;
+                    }
+                } catch (e) {
+                    console.error("Error fetching series reference:", e);
+                    seriesEl.innerText = "Series: Error loading";
+                }
+            } else {
+                seriesEl.innerText = "Series: Mainline";
+            }
+
+            // 5. Render Type (STH/TH/Mainline)
             const typeDiv = document.getElementById("car-type");
             if (data["Super TH"]) {
                 typeDiv.innerHTML = `<a href="treasures.html?type=STH" style="text-decoration: none; color: inherit; display: block;">SUPER TREASURE HUNT 🔥</a>`;
@@ -180,19 +206,13 @@
             const frame = document.getElementById("car-image-frame");
             let dudCar = null;
 
-            // Only search for a dud if cachedCars is loaded
             if (data["Super TH"] && cachedCars.length > 0) {
                 const currentCases = Array.isArray(data.Case) ? data.Case : [data.Case];
-                
                 dudCar = cachedCars.find(c => {
-                    // 1. Must be the same model
                     const sameModel = c.Model === data.Model;
-                    // 2. Must NOT be an STH
                     const isMainline = c["Super TH"] === false;
-                    // 3. Must share at least one case (prevents year mismatch)
                     const carCases = Array.isArray(c.Case) ? c.Case : [c.Case];
                     const sharedCase = carCases.some(val => currentCases.includes(val));
-
                     return sameModel && isMainline && sharedCase;
                 });
             }
