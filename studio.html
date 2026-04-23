@@ -10,7 +10,7 @@
             width: 100%;
             height: 100%;
             overflow: hidden; /* Prevent scrolling */
-            font-family: 'Arial Black', 'Helvetica Bold', sans-serif; /* Bold, industrial font */
+            font-family: 'Arial', 'Helvetica', sans-serif; /* Bold, industrial font */
             background: #222; /* Fallback color */
         }
 
@@ -44,8 +44,8 @@
         #data-block {
             border-left: 5px solid #FF9800; /* Match the Hot Wheels Orange */
             position: absolute;
-            top: 50%;
-            left: 5%;
+            top: 70%;
+            left: 30%;
             transform: translateY(-50%);
             width: 30%; /* Slightly narrowed for a tighter look */
             color: white;
@@ -79,13 +79,13 @@
 
         .data-value {
             color: #eee;
-            font-size: 1.4em;
+            font-size: 1em;
             text-align: right;
         }
 
         /* The big model title */
         #model-title {
-            font-size: 2.4em;
+            font-size: 1.8em;
             color: #FF9800; /* Signature Hot Wheels Orange */
             margin-bottom: 40px;
             margin-top: 0;
@@ -136,7 +136,7 @@
 
     <div id="loading-msg">INITIALIZING STUDIO...</div>
 
-    <div id="car-ghost-preview" style="position: absolute; right: 5%; top: 50%; transform: translateY(-50%); width: 45%; height: 60%; display: flex; align-items: center; justify-content: center; z-index: 5; opacity: 1;">
+    <div id="car-ghost-preview" style="position: absolute; right: 5%; top: 50%; transform: translateY(-50%); width: 45%; height: 60%; display: flex; align-items: center; justify-content: center; z-index: 5; opacity: 0;">
         <img id="ghost-img" src="" style="max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 0 20px rgba(0,0,0,0.5));">
     </div>
 
