@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Postcard - Maniko Lab</title>
+    <link rel="stylesheet" href="style.css?v=1.1">
+    <style>
+        .upload-card {
+            max-width: 500px;
+            margin: 20px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        #image-preview-container {
+            width: 100%;
+            aspect-ratio: 1/1;
+            background: #f0f0f0;
+            border: 2px dashed #ccc;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+        #image-preview-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .btn-capture {
+            background: #2196F3;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 30px;
+            border: none;
+            font-weight: bold;
+            font-size: 1.1em;
+            cursor: pointer;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .ai-status {
+            margin-top: 15px;
+            font-weight: bold;
+            color: #666;
+            display: none;
+        }
+        /* Loading animation */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body style="background: #f4f7f6; font-family: sans-serif;">
+
+    <div class="header-spacer"></div>
+
+    <div class="upload-card">
+        <h1 style="margin-top: 0;">AI Collector Studio</h1>
+        <p style="color: #666; margin-bottom: 25px;">Snap a photo to generate your professional listing postcard.</p>
+
+        <div id="image-preview-container">
+            <span id="placeholder-text">No Photo Selected</span>
+            <img id="main-preview" style="display: none;">
+        </div>
+
+        <input type="file" id="camera-input" accept="image/*" capture="environment" style="display: none;">
+        
+        <button class="btn-capture" onclick="document.getElementById('camera-input').click()">
+            <span>📸</span> Take Photo or Upload
+        </button>
+
+        <div id="status-area" class="ai-status">
+            <div class="loader"></div>
+            <p id="status-text">Analyzing car details...</p>
+        </div>
+
+        <div id="result-actions" style="display: none; margin-top: 20px; gap: 10px; flex-direction: column;">
+            <button id="btn-generate" style="background: #FF9800; color: white; padding: 15px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer;">
+                ✨ Generate Postcard
+            </button>
+            <button onclick="location.reload()" style="background: none; border: 1px solid #ccc; padding: 10px; border-radius: 10px; cursor: pointer;">
+                Try Another
+            </button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { injectSharedUI } from './components.js';
+        import { auth, db } from './app.js';
+        import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+        injectSharedUI();
+
+        const cameraInput = document.getElementById('camera-input');
+        const mainPreview = document.getElementById('main-preview');
+        const placeholder = document.getElementById('placeholder-text');
+        const statusArea = document.getElementById('status-area');
+        const resultActions = document.getElementById('result-actions');
+
+        // Ensure user is logged in
+        onAuthStateChanged(auth, (user) => {
+            if (!user) {
+                alert("Please login to use the AI Studio");
+                window.location.href = "hotwheels.html";
+            }
+        });
+
+        cameraInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    mainPreview.src = event.target.result;
+                    mainPreview.style.display = 'block';
+                    placeholder.style.display = 'none';
+                    
+                    // Simulate AI Trigger
+                    startAISimulation(file);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function startAISimulation(file) {
+            statusArea.style.display = 'block';
+            resultActions.style.display = 'none';
+            
+            // This is where the AI API call will go
+            // For now, we simulate a 3-second delay
+            setTimeout(() => {
+                statusArea.style.display = 'none';
+                resultActions.style.display = 'flex';
+                
+                // We store dummy data for the next step
+                window.detectedCar = {
+                    model: "73 Honda Civic Custom",
+                    year: "2024",
+                    collector: "142",
+                    series: "HW J-Imports",
+                    seriesNum: "5",
+                    type: "Mainline",
+                    image: mainPreview.src
+                };
+                
+                console.log("AI Identification complete (Simulated)");
+            }, 3000);
+        }
+
+        document.getElementById('btn-generate').onclick = () => {
+            // Save detected data to sessionStorage to pass to the studio page
+            sessionStorage.setItem('postcardData', JSON.stringify(window.detectedCar));
+            // Redirect to a modified studio page or a postcard viewer
+            window.location.href = "studio.html?mode=postcard";
+        };
+    </script>
+</body>
+</html>

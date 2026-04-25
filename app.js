@@ -149,6 +149,7 @@ function showAdminLinks() {
             <a href="addNewCar.html" style="display: block; padding: 10px; text-decoration: none; color: #FF9800; font-weight: bold; font-family: sans-serif;">➕ Add New Car</a>
             <a href="addSeries.html" style="display: block; padding: 10px; text-decoration: none; color: #2196F3; font-family: sans-serif; font-weight: bold;">➕ Add New Series</a>
             <a href="studio.html" style="display: block; padding: 10px; text-decoration: none; color: #2f1901; font-family: sans-serif; font-weight: bold;">📷 Open Studio</a>
+            <a href="postcard.html" style="display: block; padding: 10px; text-decoration: none; color: #2f1901; font-family: sans-serif; font-weight: bold;">📸 Create Postcard</a>
         `;
     }
 }
