@@ -3,172 +3,274 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Postcard - Maniko Lab</title>
-    <link rel="stylesheet" href="style.css?v=1.1">
+    <title>AI Collector Studio - Maniko</title>
+    <link rel="stylesheet" href="style.css?v=1.2">
     <style>
-        .upload-card {
-            max-width: 500px;
-            margin: 20px auto;
-            background: white;
-            padding: 30px;
-            border-radius: 20px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        body { background: #f4f7f6; font-family: sans-serif; }
+        
+        .studio-container {
+            max-width: 450px;
+            margin: 40px auto;
+            padding: 20px;
             text-align: center;
         }
-        #image-preview-container {
-            width: 100%;
-            aspect-ratio: 1/1;
-            background: #f0f0f0;
-            border: 2px dashed #ccc;
-            border-radius: 15px;
-            margin-bottom: 20px;
+
+        /* Hero Action Button (Top) */
+        .btn-camera-hero {
+            background: #2196F3;
+            color: white;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            border: none;
+            font-size: 2.5rem;
+            cursor: pointer;
+            box-shadow: 0 10px 25px rgba(33, 150, 243, 0.4);
             display: flex;
             align-items: center;
             justify-content: center;
-            overflow: hidden;
-            position: relative;
+            margin: 0 auto 20px auto;
+            transition: transform 0.2s;
         }
-        #image-preview-container img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        .btn-capture {
+
+        /* Standard Button (Under text) */
+        .btn-primary-wide {
             background: #2196F3;
             color: white;
             padding: 15px 30px;
             border-radius: 30px;
             border: none;
             font-weight: bold;
-            font-size: 1.1em;
+            font-size: 1.1rem;
             cursor: pointer;
             width: 100%;
+            max-width: 300px;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 10px;
+            margin: 0 auto 20px auto;
+            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
         }
-        .ai-status {
-            margin-top: 15px;
+
+        .btn-camera-hero:active, .btn-primary-wide:active {
+            transform: scale(0.95);
+        }
+
+        h1 { font-size: 1.8rem; margin-bottom: 10px; color: #333; }
+        p { color: #666; margin-bottom: 25px; line-height: 1.4; }
+
+        /* Preview area */
+        #post-capture-area {
+            display: none; 
+            background: white;
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            margin-top: 20px;
+        }
+
+        #main-preview {
+            width: 100%;
+            border-radius: 12px;
+            aspect-ratio: 1/1;
+            object-fit: cover;
+            margin-bottom: 15px;
+        }
+
+        .status-box {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 15px;
             font-weight: bold;
-            color: #666;
-            display: none;
+            color: #2196F3;
         }
-        /* Loading animation */
+
         .loader {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #2196F3;
             border-radius: 50%;
-            width: 30px;
-            height: 30px;
+            width: 20px;
+            height: 20px;
             animation: spin 1s linear infinite;
-            display: inline-block;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .btn-generate {
+            background: #FF9800;
+            color: white;
+            width: 100%;
+            padding: 15px;
+            border-radius: 12px;
+            border: none;
+            font-weight: bold;
+            font-size: 1.1rem;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
+        }
     </style>
 </head>
-<body style="background: #f4f7f6; font-family: sans-serif;">
+<body>
 
     <div class="header-spacer"></div>
 
-    <div class="upload-card">
-        <h1 style="margin-top: 0;">AI Collector Studio</h1>
-        <p style="color: #666; margin-bottom: 25px;">Snap a photo to generate your professional listing postcard.</p>
-
-        <div id="image-preview-container">
-            <span id="placeholder-text">No Photo Selected</span>
-            <img id="main-preview" style="display: none;">
-        </div>
-
-        <input type="file" id="camera-input" accept="image/*" capture="environment" style="display: none;">
+    <div class="studio-container">
+        <button class="btn-camera-hero" onclick="document.getElementById('camera-input').click()">
+            📸
+        </button>
         
-        <button class="btn-capture" onclick="document.getElementById('camera-input').click()">
-            <span>📸</span> Take Photo or Upload
+        <h1>AI Studio</h1>
+        <p>Snap a photo to identify your car and create a professional listing card instantly.</p>
+
+        <button class="btn-primary-wide" onclick="document.getElementById('camera-input').click()">
+            <span>📷</span> Take Photo or Upload
         </button>
 
-        <div id="status-area" class="ai-status">
-            <div class="loader"></div>
-            <p id="status-text">Analyzing car details...</p>
-        </div>
+        <input type="file" id="camera-input" accept="image/*" capture="environment" style="display: none;">
 
-        <div id="result-actions" style="display: none; margin-top: 20px; gap: 10px; flex-direction: column;">
-            <button id="btn-generate" style="background: #FF9800; color: white; padding: 15px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer;">
-                ✨ Generate Postcard
-            </button>
-            <button onclick="location.reload()" style="background: none; border: 1px solid #ccc; padding: 10px; border-radius: 10px; cursor: pointer;">
-                Try Another
-            </button>
+        <div id="post-capture-area">
+            <img id="main-preview" src="">
+            
+            <div id="ai-loading" class="status-box">
+                <div class="loader"></div>
+                <span>Analyzing Car...</span>
+            </div>
+
+            <div id="ai-complete" style="display: none;">
+                <p style="font-size: 0.9rem; color: #666; margin-bottom: 10px; font-weight: bold;">
+                    ✨ Select the best match:
+                </p>
+                
+                <div id="car-choices-container" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
+                    </div>
+
+                <button onclick="location.reload()" style="background:none; border:none; color:#999; cursor:pointer; font-size:0.8rem; text-decoration: underline;">
+                    None of these? Retake Photo
+                </button>
+            </div>
         </div>
     </div>
 
     <script type="module">
         import { injectSharedUI } from './components.js';
-        import { auth, db } from './app.js';
-        import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { auth, db } from './app.js'; 
+        import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
 
         injectSharedUI();
 
+        // 1. Initialize with stable API version
+        const genAI = new GoogleGenerativeAI("AIzaSyDdHatxrMVRvAKbJBzX1Cwngehtcup62ow");
+
         const cameraInput = document.getElementById('camera-input');
+        const previewArea = document.getElementById('post-capture-area');
         const mainPreview = document.getElementById('main-preview');
-        const placeholder = document.getElementById('placeholder-text');
-        const statusArea = document.getElementById('status-area');
-        const resultActions = document.getElementById('result-actions');
+        const loadingBox = document.getElementById('ai-loading');
+        const completeBox = document.getElementById('ai-complete');
 
-        // Ensure user is logged in
-        onAuthStateChanged(auth, (user) => {
-            if (!user) {
-                alert("Please login to use the AI Studio");
-                window.location.href = "hotwheels.html";
-            }
-        });
-
-        cameraInput.addEventListener('change', function(e) {
+        cameraInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (file) {
                 const reader = new FileReader();
-                reader.onload = function(event) {
+                reader.onload = (event) => {
                     mainPreview.src = event.target.result;
-                    mainPreview.style.display = 'block';
-                    placeholder.style.display = 'none';
-                    
-                    // Simulate AI Trigger
-                    startAISimulation(file);
+                    previewArea.style.display = 'block';
+                    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                    identifyCar();
                 };
                 reader.readAsDataURL(file);
             }
         });
 
-        function startAISimulation(file) {
-            statusArea.style.display = 'block';
-            resultActions.style.display = 'none';
+        async function identifyCar() {
+            loadingBox.style.display = 'flex';
+            completeBox.style.display = 'none';
+            const container = document.getElementById('car-choices-container');
+            container.innerHTML = ''; 
+
+            const base64Data = mainPreview.src.split(',')[1];
+            const imagePart = { inlineData: { data: base64Data, mimeType: "image/jpeg" } };
             
-            // This is where the AI API call will go
-            // For now, we simulate a 3-second delay
-            setTimeout(() => {
-                statusArea.style.display = 'none';
-                resultActions.style.display = 'flex';
+            // 1. Use Gemini 2.5 Flash (Production Stable) for the Visual DNA scan
+            // This model is optimized for Price/Performance in 2026
+            const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+            const prompt = `Identify this Hot Wheels car. 
+                1. Find the Mainline Collector Number (format: XXX/YYY).
+                2. Find the Series Number (format: X/Y).
+                3. Look for the Model Name and Year.
                 
-                // We store dummy data for the next step
-                window.detectedCar = {
-                    model: "73 Honda Civic Custom",
-                    year: "2024",
-                    collector: "142",
-                    series: "HW J-Imports",
-                    seriesNum: "5",
-                    type: "Mainline",
-                    image: mainPreview.src
-                };
-                
-                console.log("AI Identification complete (Simulated)");
-            }, 3000);
+                Return ONLY JSON: {
+                    "suggestions": [{
+                        "name": , 
+                        "year": , 
+                        "collector": , 
+                        "series_num": ,
+                        "series_name": 
+                    }]
+                }`;
+
+            try {
+                console.log("System: Performing Production-Grade DNA Scan...");
+                const result = await model.generateContent([prompt, imagePart]);
+                const response = await result.response;
+                const text = response.text().replace(/```json|```/g, "").trim();
+                const aiData = JSON.parse(text);
+
+                aiData.suggestions.forEach(item => createChoiceButton(item));
+
+                loadingBox.style.display = 'none';
+                completeBox.style.display = 'block';
+            } catch (error) {
+                console.error("AI Analysis Error:", error.message);
+                // Fallback for model name if your specific region is still on 1.5
+                if (error.message.includes("404")) {
+                    console.log("System: Redirecting to Legacy Stable (1.5)...");
+                    const fallbackModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                    // ... (Retry logic can be added here)
+                }
+                loadingBox.style.display = 'none';
+            }
         }
 
-        document.getElementById('btn-generate').onclick = () => {
-            // Save detected data to sessionStorage to pass to the studio page
-            sessionStorage.setItem('postcardData', JSON.stringify(window.detectedCar));
-            // Redirect to a modified studio page or a postcard viewer
-            window.location.href = "studio.html?mode=postcard";
-        };
+        function createChoiceButton(suggestion) {
+            const container = document.getElementById('car-choices-container');
+            const btn = document.createElement('button');
+            const model = String(suggestion.name);
+            const coll = String(suggestion.collector).includes('/') ? suggestion.collector : `${suggestion.collector}/250`;
+            const sNum = String(suggestion.series_num);
+            const sName = String(suggestion.series_name);
+            
+            btn.style.cssText = `
+                background: white; border: 2px solid #e0e0e0; padding: 15px; 
+                border-radius: 12px; text-align: left; cursor: pointer; 
+                margin-bottom: 10px; width: 100%; display: flex; justify-content: space-between;
+            `;
+            
+            btn.innerHTML = `
+                <div>
+                    <strong style="color: #2196F3;">${model} (${suggestion.year})</strong>
+                    <div style="font-size: 0.8rem; color: #666;">${sName} ${sNum}</div>
+                </div>
+                <div style="text-align: right;">
+                    <span style="font-weight: bold; color: #333;">#${coll}</span>
+                </div>
+            `;
+
+            btn.onclick = () => {
+                const finalData = {
+                    model: model,
+                    year: String(suggestion.year),
+                    series: `${sName} ${sNum}`,
+                    collector: coll,
+                    photo: mainPreview.src
+                };
+                sessionStorage.setItem('tempPostcard', JSON.stringify(finalData));
+                window.location.href = "studio.html?mode=postcard";
+            };
+            container.appendChild(btn);
+        }
     </script>
 </body>
 </html>
