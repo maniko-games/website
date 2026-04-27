@@ -13,11 +13,14 @@
     <h1>Add New / Edit Hot Wheels</h1>
     <div style="display: flex; flex-direction: column; gap: 10px;">
         
-        <div style="display: flex; gap: 5px;">
-            <input type="text" id="modelName" placeholder="Model Name (e.g. '92 Dodge Viper RT/10)" style="flex-grow: 1; padding: 8px;">
-            <button type="button" id="btnSearch" style="padding: 5px 15px; cursor: pointer; background: #FF9800; color: white; border: none; border-radius: 4px; font-weight: bold;">
-                Search 🔍
-            </button>
+        <div style="display: flex; flex-direction: column; gap: 5px;">
+            <div style="display: flex; gap: 5px;">
+                <input type="text" id="modelCode" placeholder="Code" style="width: 80px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+                <input type="text" id="modelName" placeholder="Model Name (e.g. '92 Dodge Viper RT/10)" style="flex-grow: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+                <button type="button" id="btnSearch" style="padding: 5px 15px; cursor: pointer; background: #FF9800; color: white; border: none; border-radius: 4px; font-weight: bold;">
+                    Search 🔍
+                </button>
+            </div>
         </div>
 
         <div id="search-results-admin" class="admin-search-results">
@@ -30,7 +33,7 @@
 
         <div style="margin-bottom: 15px;">
             <label>Year</label>
-            <select id="year-select" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+            <select id="year-select" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box;">
                 <option value="">Loading years...</option>
             </select>
         </div>
@@ -49,29 +52,35 @@
                 <span id="edit-preview-placeholder" style="font-size: 0.7em; color: #999; text-align: center;">No Image Loaded</span>
             </div>
 
-            <div style="display: flex; flex-direction: column; gap: 5px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.85em;">
+                <label><input type="checkbox" id="isPremium"> Premium?</label>
+                <label><input type="checkbox" id="isChase"> Chase?</label>
+                <label><input type="checkbox" id="isSilver"> Silver Series?</label>
                 <label><input type="checkbox" id="isSuper"> Super TH?</label>
+                <label><input type="checkbox" id="isColorShifter"> Color Shifter?</label>
                 <label><input type="checkbox" id="isTH"> Regular TH?</label>
-                <label><input type="checkbox" id="iLike"> I like?</label>
-                <label><input type="checkbox" id="iOwn"> I own?</label>
+                <label><input type="checkbox" id="isMultipack"> Multipack Excl?</label>
+                <label><input type="checkbox" id="isWalmart"> Walmart Excl?</label>
+                <input type="checkbox" id="iLike" style="display:none">
+                <input type="checkbox" id="iOwn" style="display:none">
             </div>
         </div>
 
         <div style="margin-bottom: 15px;">
             <label>Collector # (e.g., 142)</label>
-            <input type="number" id="collector-num" placeholder="142" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+            <input type="number" id="collector-num" placeholder="142" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box;">
         </div>
 
         <div style="margin-bottom: 15px;">
             <label>Series</label>
-            <select id="series-select" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+            <select id="series-select" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box;">
                 <option value="">Select a Year first...</option>
             </select>
         </div>
 
         <div style="margin-bottom: 15px;">
             <label>Series # (e.g., 3)</label>
-            <input type="number" id="series-num" placeholder="3" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+            <input type="number" id="series-num" placeholder="3" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box;">
         </div>
 
         <label style="font-size: 0.8em; color: #666;">Generated Document ID (Filename):</label>
@@ -92,487 +101,238 @@
             <div style="display: flex; gap: 10px; margin-top: 10px;">
                 <button id="btnOverwrite" style="background: #e74c3c; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;">Overwrite</button>
                 <button id="btnCreateNew" style="background: #27ae60; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;">Create New (with index)</button>
-                <button onclick="document.getElementById('duplicate-warning').style.display='none'" style="background: #95a5a6; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;">Cancel</button>
             </div>
         </div>
 
-        <button id="btnSave" ...>Save Data & Upload Image</button>
+        <button id="btnSave" style="margin-top: 20px; padding: 15px; cursor: pointer; background: #4CAF50; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 1.1em;">Save Data & Upload Image</button>
         <p id="status" style="font-weight: bold;"></p>
     </div>
 
     <script type="module">
-        let isEditMode = false; // To track if we are updating or creating
-        let editingCarId = null; // This was missing and caused the error!
+        let isEditMode = false;
+        let editingCarId = null;
 
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, doc, setDoc, getDoc, collection, query, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
         import { injectSharedUI } from './components.js';
         import { db, auth } from './app.js';
 
         injectSharedUI();
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyAkdQrNE0jswL4xfAEM4uHtHyzPwn2o3bU",
-            authDomain: "maniko-hotwheels.firebaseapp.com",
-            projectId: "maniko-hotwheels",
-            storageBucket: "maniko-hotwheels.firebasestorage.app",
-            messagingSenderId: "534387805003",
-            appId: "1:534387805003:web:9b78747f3538b58194b6ce",
-            measurementId: "G-V3WYKC0X1Q"
-        };
-        const app = initializeApp(firebaseConfig);
-        const storage = getStorage(app);
         const modelInput = document.getElementById("modelName");
+        const codeInput = document.getElementById("modelCode");
         const idOutput = document.getElementById("docId");
         const status = document.getElementById("status");
         const imageInput = document.getElementById("imageInput");
         const superCheckbox = document.getElementById("isSuper");
         const caseContainer = document.getElementById("case-container");
         const warningBox = document.getElementById("duplicate-warning");
-        const CASE_LETTERS = ['A','B','C','D','E','F','G','H','J','K','L','M','N','P','Q'];
+        const CASE_LETTERS = ['A','B','C','D','E','F','G','H','J','K','L','M','N','P','Q', 'Multipack', '-'];
 
-        // --- ID GENERATION ---
         function generateId() {
-            // 1. Clean the model name (remove symbols, lowercase)
             let model = modelInput.value.toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
-            
-            // 2. Clean the case name
+            let code = codeInput.value.toLowerCase().replace(/[^a-z0-9]/g, "").trim();
             const firstSelect = document.querySelector(".case-select");
             let firstCase = firstSelect ? firstSelect.value.toLowerCase().replace(/[^a-z0-9 ]/g, "").trim() : "";
-            
-            // 3. Add suffix for Super Treasure Hunts
             let suffix = superCheckbox.checked ? "-super" : "";
-            
-            // 4. Combine into a clean URL-friendly ID
-            let combined = `${model}-${firstCase}${suffix}`;
-            
-            // 5. Replace any double dashes or spaces with a single dash
+            let combined = `${model}${code ? '-' + code : ''}-${firstCase}${suffix}`;
             let cleanId = combined.replace(/\s+/g, "-").replace(/-+/g, "-"); 
-            
             idOutput.value = cleanId;
         }
 
         modelInput.addEventListener("input", generateId);
+        codeInput.addEventListener("input", generateId);
         superCheckbox.addEventListener("change", generateId);
-        caseContainer.addEventListener("change", (e) => {
-            if (e.target.classList.contains("case-select")) generateId();
-        });
+        caseContainer.addEventListener("change", (e) => { if (e.target.classList.contains("case-select")) generateId(); });
 
-        // --- COPY LOGIC ---
-        document.getElementById("btnCopy").addEventListener("click", () => {
-            if (!idOutput.value) return;
-            navigator.clipboard.writeText(idOutput.value).then(() => {
-                const btn = document.getElementById("btnCopy");
-                btn.innerText = "Done!";
-                setTimeout(() => btn.innerText = "Copy", 1500);
-            });
-        });
-
-        // --- SAVE DATA & UPLOAD IMAGE ---
         document.getElementById("btnSave").addEventListener("click", async () => {
             const id = idOutput.value;
             const file = imageInput.files[0];
-
-            if (!id || (!file && !isEditMode)) {
-                alert("ID and Image are required for new cars!");
-                return;
-            }
-
+            if (!id || (!file && !isEditMode)) { alert("ID and Image are required!"); return; }
             try {
-                status.innerText = "🔍 Checking for duplicates...";
-                const docRef = doc(db, "mainline-cars", id);
-                const docSnap = await getDoc(docRef);
-
-                if (docSnap.exists()) {
-                    // SHOW THE WARNING
+                status.innerText = "🔍 Checking...";
+                const docSnap = await getDoc(doc(db, "mainline-cars", id));
+                if (docSnap.exists() && !isEditMode) {
                     warningBox.style.display = "block";
-                    status.innerText = "⚠️ Attention required above.";
-                    
-                    // Set up the Overwrite button
                     document.getElementById("btnOverwrite").onclick = () => executeSave(id);
-                    
-                    // Set up the Create New button
-                    document.getElementById("btnCreateNew").onclick = async () => {
-                        let index = 1;
-                        let newId = `${id}-${index.toString().padStart(2, '0')}`;
-                        
-                        // Keep checking until we find a free index
-                        let exists = true;
-                        while (exists) {
-                            const checkSnap = await getDoc(doc(db, "mainline-cars", newId));
-                            if (!checkSnap.exists()) {
-                                exists = false;
-                            } else {
-                                index++;
-                                newId = `${id}-${index.toString().padStart(2, '0')}`;
-                            }
-                        }
-                        executeSave(newId);
-                    };
-                } else {
-                    // No duplicate, save normally
-                    executeSave(id);
-                }
-            } catch (e) {
-                console.error(e);
-                status.innerText = "❌ Error: " + e.message;
-            }
+                } else { executeSave(id); }
+            } catch (e) { status.innerText = "❌ Error: " + e.message; }
         });
 
-        // --- UPDATED SAVE LOGIC: DATA TO FIRESTORE + LOCAL DOWNLOAD ---
         async function executeSave(finalId) {
             warningBox.style.display = "none";
             const file = imageInput.files[0];
-            
-            if (!file) {
-                alert("Please select an image first!");
-                return;
-            }
-
             let extension = file ? file.name.split('.').pop().toLowerCase() : "jpg";
-            if (extension === "jpeg") extension = "jpg"; // Force jpeg to jpg
-            const fileName = `${finalId}.${extension}`;
+            if (extension === "jpeg") extension = "jpg";
 
             try {
-                status.innerText = isEditMode ? "⏳ Updating Firestore..." : "⏳ Creating new document...";
-
-                // 1. Collect Data for Firestore
-                const caseArray = Array.from(document.querySelectorAll(".case-select")).map(s => s.value).filter(v => v !== ""); 
                 const yearId = document.getElementById('year-select').value;
                 const seriesId = document.getElementById('series-select').value;
 
                 const newCar = {
                     "Model": modelInput.value,
-                    "Case": caseArray,
+                    "ModelCode": codeInput.value,
+                    "Case": Array.from(document.querySelectorAll(".case-select")).map(s => s.value).filter(v => v !== ""),
                     "Super TH": superCheckbox.checked,
                     "TH": document.getElementById("isTH").checked,
+                    "Color Shifter": document.getElementById("isColorShifter").checked,
+                    "Multipack Exclusive": document.getElementById("isMultipack").checked,
+                    "Walmart Exclusive": document.getElementById("isWalmart").checked,
+                    "Silver Series": document.getElementById("isSilver").checked,
+                    "Premium": document.getElementById("isPremium").checked,
+                    "Chase": document.getElementById("isChase").checked,
                     "ImageExt": extension,
                     "I like?": document.getElementById("iLike").checked,
                     "I own?": document.getElementById("iOwn").checked,
-                    CollectorNumber: parseInt(document.getElementById('collector-num').value),
-                    SeriesNumber: parseInt(document.getElementById('series-num').value),
+                    CollectorNumber: parseInt(document.getElementById('collector-num').value) || 0,
+                    SeriesNumber: parseInt(document.getElementById('series-num').value) || 0,
                     Year: doc(db, "years", yearId),
                     Series: doc(db, "series", seriesId),
                 };
 
-                // 2. Save Data to Firestore (Engine still needs the database!)
                 await setDoc(doc(db, "mainline-cars", finalId), newCar);
-
-                if (isEditMode) {
-                    // Use updateDoc for existing cars to be safe
-                    const { updateDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
-                    await updateDoc(doc(db, "mainline-cars", finalId), newCar);
-                } else {
-                    // Use setDoc for new cars
-                    await setDoc(doc(db, "mainline-cars", finalId), newCar);
-                }
-
-                // 3. Trigger a Local Download (The Replacement for Storage Upload)
-                if (file) {
-                    status.innerText = "💾 Saving new image to your computer...";
-                    triggerLocalDownload(file, finalId, extension);
-                } else {
-                    status.innerText = "✅ Data updated (No image change).";
-                }
-                
-                // Show a small instruction
-                const tip = document.createElement('p');
-                tip.innerHTML = `👉 Drag <strong>${finalId}.${extension}</strong> to your <strong>/website/Cars/</strong> folder and push to GitHub!`;
-                tip.style.color = "#2196F3";
-                tip.style.fontSize = "0.9em";
-                status.appendChild(tip);
-
-                isEditMode = false;
-                document.getElementById("btnSave").innerText = "Save Data & Upload Image";
-                document.getElementById("btnSave").style.background = ""; // Reset color
-                document.getElementById("edit-preview-img").style.display = "none";
-                document.getElementById("edit-preview-placeholder").style.display = "block";
-
-                resetForm(); 
-                isEditMode = false;
-                editingCarId = null; // Clear the ID after a successful save
-                document.getElementById("btnSave").innerText = "Save Data & Upload Image";
-                document.getElementById("btnSave").style.background = "";
-            } catch (e) {
-                status.innerText = "❌ Error: " + e.message;
-            }
+                if (file) triggerLocalDownload(file, finalId, extension);
+                resetForm();
+                status.innerText = "✅ Saved!";
+            } catch (e) { status.innerText = "❌ Error: " + e.message; }
         }
 
-        // NEW HELPER: Triggers a file download with the correctly formatted ID
         function triggerLocalDownload(file, finalId, extension) {
             const url = URL.createObjectURL(file);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${finalId}.${extension}`; // This ensures the filename is ALWAYS correct
+            a.download = `${finalId}.${extension}`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-            URL.revokeObjectURL(url);
         }
 
         function resetForm() {
-            modelInput.value = "";
-            idOutput.value = "";
-            imageInput.value = "";
+            modelInput.value = ""; codeInput.value = ""; idOutput.value = ""; imageInput.value = "";
             superCheckbox.checked = false;
-            document.getElementById("isTH").checked = false;
-            
-            // Reset the extra Case selects
+            ["isTH","isColorShifter","isMultipack","isWalmart","isSilver","isPremium","isChase","iLike","iOwn"].forEach(id => document.getElementById(id).checked = false);
             const rows = document.querySelectorAll(".case-row");
-            rows.forEach((row, index) => {
-                if (index > 0) row.remove();
-            });
-            caseContainer.querySelector("select").value = "";
+            rows.forEach((row, index) => { if (index > 0) row.remove(); });
             modelInput.focus();
         }
 
-        // --- Hotkey: Enter to Search ---
-        // Moved OUTSIDE so it works immediately
-        modelInput.addEventListener("keydown", (e) => {
-            if (e.key === "Enter") {
-                e.preventDefault(); 
-                document.getElementById("btnSearch").click();
-            }
-        });
-
-        // --- ADMIN SEARCH LOGIC ---
+        // --- UPDATED SEARCH LOGIC: Searches both Name and Code ---
         document.getElementById("btnSearch").addEventListener("click", async () => {
-            const queryVal = modelInput.value.toLowerCase().trim();
-            const resultsDiv = document.getElementById("search-results-admin");
+            const nameQuery = modelInput.value.toLowerCase().trim();
+            const codeQuery = codeInput.value.toLowerCase().trim();
             const grid = document.getElementById("admin-results-grid");
             
-            if (queryVal.length < 2) {
-                alert("Enter at least 2 characters to search!");
-                return;
+            if (nameQuery.length < 2 && codeQuery.length < 2) { 
+                alert("Enter at least 2 characters in either box to search!"); 
+                return; 
             }
 
+            document.getElementById("search-results-admin").style.display = "block";
+            grid.innerHTML = "Searching...";
+
             try {
-                grid.innerHTML = "Searching...";
-                resultsDiv.style.display = "block";
-
                 const querySnapshot = await getDocs(collection(db, "mainline-cars"));
-                const matches = querySnapshot.docs
-                    .map(doc => ({ id: doc.id, ...doc.data() }))
-                    .filter(car => car.Model.toLowerCase().includes(queryVal));
+                const matches = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+                    .filter(car => {
+                        const matchName = nameQuery && car.Model.toLowerCase().includes(nameQuery);
+                        const matchCode = codeQuery && car.ModelCode && car.ModelCode.toLowerCase().includes(codeQuery);
+                        return matchName || matchCode;
+                    });
 
-                grid.innerHTML = "";
-
-                if (matches.length === 0) {
-                    grid.innerHTML = "<p style='font-size: 0.9em; color: #666;'>No matches found. Safe to add!</p>";
-                    return;
-                }
-
-                matches.forEach((car) => {
+                grid.innerHTML = matches.length ? "" : "No matches found.";
+                matches.forEach(car => {
                     const row = document.createElement("div");
                     row.style = "display: flex; gap: 10px; align-items: center; background: white; padding: 5px; border-radius: 5px; border: 1px solid #eee; cursor: pointer;";
                     row.onclick = () => window.loadCarForEdit(car);
-                    
-                    const type = car["Super TH"] ? "STH" : (car["TH"] ? "TH" : "Mainline");
-                    const cases = Array.isArray(car.Case) ? car.Case.join(', ') : car.Case;
-                    
-                    // Use the stored extension or default to jpg
-                    const ext = car.ImageExt || "jpg";
-                    const localImgPath = `Cars/${car.id}.${ext}`; 
-
                     row.innerHTML = `
-                        <img class="admin-prev-img" src="${localImgPath}" 
-                            onerror="this.src='https://github.com/maniko-games/website/blob/main/Images/sth.webp?raw=true'; this.onerror=null;"
-                            style="height: 50px; width: 50px; object-fit: contain; background: #f9f9f9; border-radius: 4px;">
-                        <div style="text-align: left; font-size: 0.85em;">
-                            <div style="font-weight: bold;">${car.Model}</div>
-                            <div style="color: #666;">Case: ${cases}</div>
-                            <div style="font-weight: bold; color: #2196F3;">${type}</div>
-                            <div style="font-size: 0.7em; color: #999; margin-top: 4px;">${car.id}</div>
-                        </div>
-                    `;
+                        <img src="Cars/${car.id}.${car.ImageExt || 'jpg'}" onerror="this.src='https://github.com/maniko-games/website/blob/main/Images/sth.webp?raw=true'" style="height: 50px; width: 50px; object-fit: contain;">
+                        <div style="font-size: 0.8em; text-align: left;">
+                            <strong style="color: #2196F3;">${car.ModelCode || 'No Code'}</strong><br>
+                            <span>${car.Model}</span>
+                        </div>`;
                     grid.appendChild(row);
                 });
-
-            } catch (e) {
-                console.error(e);
-                grid.innerHTML = "Error searching.";
-            }
+            } catch (e) { grid.innerHTML = "Error searching."; }
         });
 
-        // Set focus to input on load so you can type immediately
-        modelInput.focus();
-
-        let allSeries = [];
-
-        async function populateDropdowns() {
-            const yearSelect = document.getElementById('year-select');
-            const seriesSelect = document.getElementById('series-select');
-
-            try {
-                // 1. Fetch Years
-                const yearsSnap = await getDocs(collection(db, "years"));
-                yearSelect.innerHTML = '<option value="">-- Select Year --</option>';
-                yearsSnap.forEach(d => {
-                    yearSelect.innerHTML += `<option value="${d.id}">${d.id}</option>`;
-                });
-
-                // 2. Set Default Year immediately so createCaseRow() sees it
-                if (yearSelect.options.length > 1) {
-                    yearSelect.value = "2026"; 
-                }
-
-                // 3. Fetch Series data
-                const seriesSnap = await getDocs(collection(db, "series"));
-                allSeries = seriesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-                // 4. Trigger the change event to populate series and sync cases
-                yearSelect.dispatchEvent(new Event('change'));
-
-            } catch (e) {
-                console.error("Error loading dropdowns:", e);
-            }
-
-            // 5. Add the first case row ONLY after the year is set
-            if (!isEditMode) {
-                const container = document.getElementById("case-container");
-                if (container.querySelectorAll('.case-row').length === 0) {
-                    container.appendChild(createCaseRow());
-                }
-            }
-        }
-
-        // Chained Logic: Filter Series based on Year
-        document.getElementById('year-select').onchange = function() {
-            const selectedYear = this.value;
-
-            // --- Update Case Dropdowns ---
-            document.querySelectorAll(".case-select").forEach(select => {
-                const currentFullVal = select.value;
-                const letter = currentFullVal ? currentFullVal.split(' - ')[0] : "";
-
-                // 1. Rewrite all options for the new year
-                let newOptions = `<option value="">-- Select Case --</option>`;
-                CASE_LETTERS.forEach(l => {
-                    newOptions += `<option value="${l} - ${selectedYear}">${l} - ${selectedYear}</option>`;
-                });
-                select.innerHTML = newOptions;
-
-                // 2. Re-select the letter if one was previously chosen
-                if (letter && letter !== "YEAR") {
-                    select.value = `${letter} - ${selectedYear}`;
+        // Search on Enter in either field
+        [modelInput, codeInput].forEach(inp => {
+            inp.addEventListener("keydown", (e) => {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    document.getElementById("btnSearch").click();
                 }
             });
-
-            // --- Update Series Dropdown ---
-            const seriesSelect = document.getElementById('series-select');
-            seriesSelect.innerHTML = '<option value="">-- Select Series --</option>';
-            const filtered = allSeries.filter(s => {
-                return s.Year && s.Year.id === selectedYear;
-            });
-            filtered.forEach(s => {
-                seriesSelect.innerHTML += `<option value="${s.id}">${s.Name}</option>`;
-            });
-        };
+        });
 
         window.loadCarForEdit = async function(data) {
             isEditMode = true;
-            editingCarId = data.id;
-
-            // 1. Fill basic text and numbers
             modelInput.value = data.Model || "";
+            codeInput.value = data.ModelCode || "";
+            idOutput.value = data.id;
             document.getElementById('collector-num').value = data.CollectorNumber || "";
             document.getElementById('series-num').value = data.SeriesNumber || "";
-            idOutput.value = data.id; // Keep the original ID
-
-            // 2. Set Checkboxes
             superCheckbox.checked = !!data["Super TH"];
             document.getElementById("isTH").checked = !!data["TH"];
-            document.getElementById("iLike").checked = !!data["I like?"];
-            document.getElementById("iOwn").checked = !!data["I own?"];
-
-            // 3. Handle Year & Trigger Series Chaining
+            document.getElementById("isColorShifter").checked = !!data["Color Shifter"];
+            document.getElementById("isMultipack").checked = !!data["Multipack Exclusive"];
+            document.getElementById("isWalmart").checked = !!data["Walmart Exclusive"];
+            document.getElementById("isSilver").checked = !!data["Silver Series"];
+            document.getElementById("isPremium").checked = !!data["Premium"];
+            document.getElementById("isChase").checked = !!data["Chase"];
+            
             if (data.Year) {
-                // Extracts "2026" from reference or string
                 const yearId = typeof data.Year === 'string' ? data.Year.split('/').pop() : data.Year.id;
-                const yearSelect = document.getElementById('year-select');
-                yearSelect.value = yearId;
-                
-                // This triggers the code that populates the Series dropdown
-                yearSelect.dispatchEvent(new Event('change'));
+                document.getElementById('year-select').value = yearId;
+                document.getElementById('year-select').dispatchEvent(new Event('change'));
             }
+            setTimeout(() => { if (data.Series) document.getElementById('series-select').value = (typeof data.Series === 'string' ? data.Series.split('/').pop() : data.Series.id); }, 200);
 
-            // 4. Handle Series (Wait 200ms for the Year dropdown to finish loading series)
-            setTimeout(() => {
-                if (data.Series) {
-                    const seriesId = typeof data.Series === 'string' ? data.Series.split('/').pop() : data.Series.id;
-                    document.getElementById('series-select').value = seriesId;
-                }
-            }, 200);
-
-            // --- 3. Handle Case(s) ---
             const caseContainer = document.getElementById("case-container");
             caseContainer.innerHTML = '<label style="font-size: 0.8em; color: #666;">Select Case(s):</label>';
-        
-            const carCases = Array.isArray(data.Case) ? data.Case : [data.Case];
-            carCases.forEach(caseVal => {
-                // This now uses the centralized list and sets the correct year automatically
-                const row = createCaseRow(caseVal);
-                caseContainer.appendChild(row);
-            });
+            (Array.isArray(data.Case) ? data.Case : [data.Case]).forEach(c => caseContainer.appendChild(createCaseRow(c)));
 
-            // Update Image Preview
-            const previewImg = document.getElementById("edit-preview-img");
-            const previewPlaceholder = document.getElementById("edit-preview-placeholder");
-
-            const ext = data.ImageExt || "jpg";
-            const localUrl = `Cars/${data.id}.${ext}`; 
-
-            previewImg.src = localUrl;
-            previewImg.style.display = "block";
-            previewPlaceholder.style.display = "none";
-
-            // Reset the error handler for the next image
-            previewImg.onerror = () => {
-                previewImg.style.display = "none";
-                previewPlaceholder.style.display = "block";
-                previewPlaceholder.innerText = "Local Image Not Found";
-            };
-
-            // 5. Visual Cue: Change the Save button to indicate Edit Mode
-            const btnSave = document.getElementById("btnSave");
-            btnSave.innerText = "Update Existing Car 💾";
-            btnSave.style.background = "#FF9800";
-
-            // Close the search results and scroll to top
+            document.getElementById("btnSave").innerText = "Update Existing Car 💾";
+            document.getElementById("btnSave").style.background = "#FF9800";
             document.getElementById("search-results-admin").style.display = "none";
             window.scrollTo({ top: 0, behavior: 'smooth' });
         };
 
-        function createCaseRow(selectedValue = "") {
-            // Get the year, but if it's currently empty (still loading), 
-            // we use a temporary placeholder "YEAR"
-            const yearSelect = document.getElementById('year-select');
-            const selectedYear = yearSelect.value || "YEAR";
-            
+        function createCaseRow(val = "") {
+            const year = document.getElementById('year-select').value || "2026";
             const row = document.createElement("div");
             row.className = "case-row";
             row.style = "display: flex; gap: 5px; margin-bottom: 5px;";
-
-            const optionsHtml = CASE_LETTERS.map(letter => {
-                const fullVal = `${letter} - ${selectedYear}`;
-                return `<option value="${fullVal}" ${fullVal === selectedValue ? 'selected' : ''}>${fullVal}</option>`;
-            }).join('');
-
-            row.innerHTML = `
-                <select class="case-select" style="padding: 8px; flex-grow: 1;">
-                    <option value="">-- Select Case --</option>
-                    ${optionsHtml}
-                </select>
-            `;
+            const opts = CASE_LETTERS.map(l => { const f = `${l} - ${year}`; return `<option value="${f}" ${f === val ? 'selected' : ''}>${f}</option>`; }).join('');
+            row.innerHTML = `<select class="case-select" style="padding: 8px; flex-grow: 1;"><option value="">-- Case --</option>${opts}</select>`;
             return row;
         }
 
-        document.getElementById("btnAddCase").onclick = () => {
-            const container = document.getElementById("case-container");
-            container.appendChild(createCaseRow());
+        let allSeries = [];
+        async function populateDropdowns() {
+            const yearsSnap = await getDocs(collection(db, "years"));
+            const yearSelect = document.getElementById('year-select');
+            yearsSnap.forEach(d => { yearSelect.innerHTML += `<option value="${d.id}">${d.id}</option>`; });
+            yearSelect.value = "2026";
+            const seriesSnap = await getDocs(collection(db, "series"));
+            allSeries = seriesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+            yearSelect.dispatchEvent(new Event('change'));
+            if (!isEditMode) caseContainer.appendChild(createCaseRow());
+        }
+
+        document.getElementById('year-select').onchange = function() {
+            const y = this.value;
+            document.querySelectorAll(".case-select").forEach(s => {
+                const l = s.value ? s.value.split(' - ')[0] : "";
+                s.innerHTML = `<option value="">-- Case --</option>` + CASE_LETTERS.map(le => `<option value="${le} - ${y}">${le} - ${y}</option>`).join('');
+                if (l) s.value = `${l} - ${y}`;
+            });
+            const ss = document.getElementById('series-select');
+            ss.innerHTML = '<option value="">-- Series --</option>';
+            allSeries.filter(s => s.Year && s.Year.id === y).forEach(s => { ss.innerHTML += `<option value="${s.id}">${s.Name}</option>`; });
         };
 
+        document.getElementById("btnAddCase").onclick = () => { caseContainer.appendChild(createCaseRow()); };
         populateDropdowns();
     </script>
 </body>

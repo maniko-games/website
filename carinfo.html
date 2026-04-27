@@ -39,7 +39,8 @@
             <p id="car-collector">Collector #: ---</p>
             <p id="car-case">Case: ---</p>
             <p id="car-series">Series: ---</p>
-            <div id="car-type" style="font-weight: bold;"></div>
+            <p id="car-type" style="font-weight: bold;"></p>
+            <p id="car-icons" align-items: center;"></p>
             <div id="collection-controls" style="display: none; margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; gap: 10px; justify-content: center; flex-wrap: wrap;">
                 <button id="btn-collection" class="btn-main btn-collection">
                     Add to Collection
@@ -183,23 +184,47 @@
                 seriesEl.innerText = "Series: Mainline";
             }
 
-            // 5. Render Type (STH/TH/Mainline)
+            // 5. Render Type & Special Status Icons
             const typeDiv = document.getElementById("car-type");
-            if (data["Super TH"]) {
-                typeDiv.innerHTML = `<a href="treasures.html?type=STH" style="text-decoration: none; color: inherit; display: block;">SUPER TREASURE HUNT 🔥</a>`;
-                typeDiv.style.color = "#e67e22"; 
-                typeDiv.style.backgroundColor = "#fff5e6";
-                typeDiv.style.cursor = "pointer";
-            } else if (data["TH"]) {
-                typeDiv.innerHTML = `<a href="treasures.html?type=TH" style="text-decoration: none; color: inherit; display: block;">TREASURE HUNT 💎</a>`;
-                typeDiv.style.color = "#95a5a6"; 
-                typeDiv.style.backgroundColor = "#f2f2f2";
-                typeDiv.style.cursor = "pointer";
+            const iconContainer = document.getElementById("car-icons");
+
+            // --- A. TEXT CATEGORY (Pick the primary one) ---
+            if (data["Premium"]) {
+                typeDiv.innerText = "Premium";
+                typeDiv.style.color = "#D4AF37"; // A deeper gold for readability
+            } else if (data["Silver Series"]) {
+                typeDiv.innerText = "Silver Series";
+                typeDiv.style.color = "#808285"; 
+            } else if (data["Color Shifter"]) {
+                typeDiv.innerHTML = '<span style="color: #0071CE;">Color</span> <span style="color: #FFB81C;">Shifter</span>';
+                typeDiv.style.textShadow = "0.5px 0.5px 0px rgba(0,0,0,0.1)"; 
+            } else if (data["Multipack Exclusive"]) {
+                typeDiv.innerText = "Multipack Exclusive";
+                typeDiv.style.color = "#E31B23"; 
             } else {
                 typeDiv.innerText = "Mainline";
                 typeDiv.style.color = "#666"; 
-                typeDiv.style.backgroundColor = "transparent";
-                typeDiv.style.cursor = "default";
+            }
+
+            // --- B. SPECIAL STATUS ICONS (Can display multiple) ---
+            let iconHTML = "";
+
+            if (data["Super TH"]) {
+                iconHTML += `<a href="treasures.html?type=STH"><img src="Images/sth.webp" alt="STH" style="height:48px; margin-left:5px;" title="Super Treasure Hunt"></a>`;
+            }
+            if (data["TH"]) {
+                iconHTML += `<a href="treasures.html?type=TH"><img src="Images/th.png" alt="TH" style="height:48px; margin-left:5px;" title="Treasure Hunt"></a>`;
+            }
+            if (data["Chase"]) {
+                iconHTML += `<img src="Images/chase.png" alt="Chase" style="height:48px; margin-left:5px;" title="Chase Car">`;
+            }
+            if (data["Walmart Exclusive"]) {
+                iconHTML += `<img src="Images/walmart.webp" alt="Walmart Exclusive" style="height:48px; margin-left:5px;" title="Walmart Exclusive">`;
+            }
+
+            // Render the icons into their dedicated container
+            if (iconContainer) {
+                iconContainer.innerHTML = iconHTML;
             }
 
             // --- IMAGE / SLIDER LOGIC ---
