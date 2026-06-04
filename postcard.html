@@ -161,7 +161,8 @@
         injectSharedUI();
 
         // 1. Initialize with stable API version
-        const genAI = new GoogleGenerativeAI("AIzaSyDdHatxrMVRvAKbJBzX1Cwngehtcup62ow");
+        // to make it work, you need a valid API key with access to the Gemini 2.5 Flash model in your region
+        const genAI = new GoogleGenerativeAI("put-key-here");
 
         const cameraInput = document.getElementById('camera-input');
         const previewArea = document.getElementById('post-capture-area');
