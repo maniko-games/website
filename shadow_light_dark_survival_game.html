@@ -110,89 +110,6 @@
             <span><strong class="text-amber-400">F / Right Click:</strong> Focus Beam Laser</span>
             <span><strong class="text-emerald-400">B:</strong> Flashlight Shop</span>
             <span><strong class="text-amber-300">ESC:</strong> Pause Game</span>
-            <span><strong class="text-cyan-400">Player:</strong> <span id="hudAccountUser" class="font-bold text-white">Guest</span></span>
-        </div>
-    </div>
-
-    <!-- User Login & Account Screen -->
-    <div id="accountScreen" class="absolute inset-0 bg-black/95 flex flex-col justify-center items-center p-6 z-40">
-        <div class="max-w-md w-full glass-panel p-8 rounded-2xl border border-amber-500/40 flex flex-col items-center shadow-2xl">
-            <div class="w-16 h-16 rounded-full bg-gradient-to-tr from-amber-500 to-red-600 flex items-center justify-center text-3xl mb-3 shadow-lg">
-                ☀️
-            </div>
-            <h1 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-400 to-red-500 mb-1 tracking-tight">
-                VAMPIRE LIGHT HUNTER
-            </h1>
-            <p class="text-gray-400 text-xs mb-6 uppercase tracking-widest">Hunter Profile & Progress Save</p>
-
-            <form id="loginForm" class="w-full space-y-4">
-                <div>
-                    <label class="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1">Hunter Username</label>
-                    <input type="text" id="usernameInput" required placeholder="Enter hunter name..." class="w-full bg-black/60 border border-gray-700 focus:border-amber-500 text-white rounded-xl px-4 py-2.5 text-sm outline-none transition">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1">Secret Passcode</label>
-                    <input type="password" id="passwordInput" required placeholder="••••••••" class="w-full bg-black/60 border border-gray-700 focus:border-amber-500 text-white rounded-xl px-4 py-2.5 text-sm outline-none transition">
-                </div>
-
-                <div id="accountError" class="text-xs text-red-400 text-center hidden font-semibold"></div>
-
-                <button type="submit" class="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-black rounded-xl uppercase tracking-wider transition cursor-pointer shadow-lg transform active:scale-95">
-                    Login / Create Account
-                </button>
-            </form>
-
-            <div class="relative w-full my-4 flex items-center justify-center">
-                <div class="border-t border-gray-800 w-full"></div>
-                <span class="bg-[#0c0c16] px-3 text-[10px] text-gray-500 font-bold uppercase tracking-wider">Or</span>
-            </div>
-
-            <button id="guestButton" class="w-full py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded-xl text-xs uppercase tracking-wider transition cursor-pointer border border-gray-700">
-                Continue as Guest (No Save)
-            </button>
-        </div>
-    </div>
-
-    <!-- Start Menu Overlay -->
-    <div id="startScreen" class="absolute inset-0 bg-black/90 flex flex-col justify-center items-center p-6 text-center z-30 hidden">
-        <div class="max-w-xl glass-panel p-8 rounded-2xl border border-amber-500/40 flex flex-col items-center shadow-2xl w-full">
-            <h1 class="text-4xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-500 to-red-600 mb-2 tracking-tight">
-                SUNLIGHT BEAM
-            </h1>
-            <p class="text-amber-200/80 text-xs sm:text-sm mb-4 uppercase tracking-widest font-semibold">Vampire Light Hunter</p>
-            
-            <div class="w-full bg-black/60 p-3 rounded-xl border border-gray-800 mb-5 flex justify-around text-xs">
-                <div>
-                    <span class="text-gray-400 block text-[10px] uppercase">Account</span>
-                    <strong id="startAccountUser" class="text-amber-400 font-bold">Guest</strong>
-                </div>
-                <div class="border-r border-gray-800"></div>
-                <div>
-                    <span class="text-gray-400 block text-[10px] uppercase">Saved Bounty</span>
-                    <strong id="startAccountMoney" class="text-emerald-400 font-bold">$0</strong>
-                </div>
-                <div class="border-r border-gray-800"></div>
-                <div>
-                    <span class="text-gray-400 block text-[10px] uppercase">High Score</span>
-                    <strong id="startAccountScore" class="text-cyan-400 font-bold">0</strong>
-                </div>
-            </div>
-
-            <div class="text-left text-xs sm:text-sm text-gray-300 bg-gray-950/80 p-4 rounded-xl border border-gray-800 space-y-2.5 mb-6 w-full shadow-inner">
-                <p>☀️ <strong>No Guns or Ammo:</strong> Your high-powered UV flashlight beam is your sole weapon.</p>
-                <p>🔥 <strong>Burn Vampires:</strong> Aim light directly at vampires to melt them into dust & cash drops.</p>
-                <p>⚡ <strong>Focused Laser Beam [F]:</strong> Concentrate light into a laser beam to disintegrate tank vampires!</p>
-                <p>🛒 <strong>Flashlight Shop [B]:</strong> Earn bounty cash ($) to buy high-power UV beam weapons.</p>
-            </div>
-
-            <div class="flex gap-4 w-full">
-                <button id="switchAccountBtn" class="w-1/3 py-3.5 bg-gray-800 hover:bg-gray-700 text-gray-200 font-bold rounded-xl text-xs uppercase tracking-wider transition cursor-pointer border border-gray-700">
-                    Switch User
-                </button>
-                <button id="startButton" class="w-2/3 py-3.5 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 hover:from-amber-400 hover:to-yellow-300 text-black font-black text-lg rounded-xl uppercase tracking-wider transition cursor-pointer shadow-lg shadow-amber-500/20 transform active:scale-95">
-                    Start Night Hunt
-                </button>
-            </div>
         </div>
     </div>
 
@@ -287,7 +204,7 @@
         const ctx = canvas.getContext('2d');
 
         // Engine State
-        let gameState = 'ACCOUNT'; // 'ACCOUNT', 'START', 'PLAYING', 'SHOP', 'PAUSED', 'GAMEOVER'
+        let gameState = 'PLAYING'; // 'PLAYING', 'SHOP', 'PAUSED', 'GAMEOVER'
         let lastTime = 0;
         let score = 0;
         let money = 0;
@@ -295,7 +212,6 @@
         let wave = 1;
         let waveEnemiesToSpawn = 0;
         let spawnTimer = 0;
-        let activeUser = null;
         let toastTimeout = null;
 
         // Flashlight Equipment Catalog
@@ -368,89 +284,6 @@
         ];
 
         let equippedFlashlight = FLASHLIGHT_CATALOG[0];
-
-        function getUsersDB() {
-            try {
-                return JSON.parse(localStorage.getItem('vampire_hunters_db')) || {};
-            } catch(e) {
-                return {};
-            }
-        }
-
-        function saveUsersDB(db) {
-            try {
-                localStorage.setItem('vampire_hunters_db', JSON.stringify(db));
-            } catch(e) {}
-        }
-
-        function handleLogin(username, password) {
-            const db = getUsersDB();
-            if (db[username]) {
-                if (db[username].password !== password) {
-                    showAccountError("Incorrect passcode for this hunter profile.");
-                    return false;
-                }
-            } else {
-                db[username] = {
-                    password: password,
-                    money: 0,
-                    highScore: 0,
-                    unlockedFlashlights: ['standard']
-                };
-                saveUsersDB(db);
-            }
-
-            activeUser = username;
-            loadUserData();
-            showStartMenu();
-            return true;
-        }
-
-        function loadUserData() {
-            if (!activeUser) return;
-            const db = getUsersDB();
-            const userData = db[activeUser];
-            if (userData) {
-                money = userData.money || 0;
-                const unlocked = userData.unlockedFlashlights || ['standard'];
-                FLASHLIGHT_CATALOG.forEach(f => {
-                    f.unlocked = unlocked.includes(f.id);
-                });
-                equippedFlashlight = FLASHLIGHT_CATALOG.find(f => f.unlocked) || FLASHLIGHT_CATALOG[0];
-            }
-        }
-
-        function saveUserData() {
-            if (!activeUser) return;
-            const db = getUsersDB();
-            if (db[activeUser]) {
-                db[activeUser].money = money;
-                db[activeUser].highScore = Math.max(db[activeUser].highScore || 0, score);
-                db[activeUser].unlockedFlashlights = FLASHLIGHT_CATALOG.filter(f => f.unlocked).map(f => f.id);
-                saveUsersDB(db);
-            }
-        }
-
-        function showAccountError(msg) {
-            const err = document.getElementById('accountError');
-            err.innerText = msg;
-            err.classList.remove('hidden');
-        }
-
-        function showStartMenu() {
-            gameState = 'START';
-            document.getElementById('accountScreen').classList.add('hidden');
-            document.getElementById('startScreen').classList.remove('hidden');
-            
-            const username = activeUser || "Guest";
-            document.getElementById('hudAccountUser').innerText = username;
-            document.getElementById('startAccountUser').innerText = username;
-            document.getElementById('startAccountMoney').innerText = `$${money}`;
-
-            const db = getUsersDB();
-            const hiScore = (activeUser && db[activeUser]) ? db[activeUser].highScore : 0;
-            document.getElementById('startAccountScore').innerText = hiScore;
-        }
 
         function resizeCanvas() {
             canvas.width = window.innerWidth;
@@ -680,7 +513,6 @@
                 score += this.scoreValue;
                 money += this.bountyMoney;
                 kills++;
-                saveUserData();
                 document.getElementById('scoreDisplay').innerText = score;
                 player.updateHUD();
                 audio.playVampireAsh();
@@ -841,7 +673,6 @@
                 } else if (this.type === 'money') {
                     const droppedCash = Math.floor(Math.random() * 20) + 20;
                     money += droppedCash;
-                    saveUserData();
                     showToast(`+$${droppedCash} Bounty Cash`);
                 }
                 player.updateHUD();
@@ -1222,7 +1053,6 @@
             const found = FLASHLIGHT_CATALOG.find(f => f.id === id);
             if (found && found.unlocked) {
                 equippedFlashlight = found;
-                saveUserData();
                 player.updateHUD();
                 openShopUI();
                 showToast(`Equipped ${found.name}`);
@@ -1235,7 +1065,6 @@
                 money -= found.price;
                 found.unlocked = true;
                 equippedFlashlight = found;
-                saveUserData();
                 player.updateHUD();
                 openShopUI();
                 showToast(`Purchased ${found.name}!`);
@@ -1269,7 +1098,6 @@
             particles = [];
             pickups = [];
 
-            document.getElementById('startScreen').classList.add('hidden');
             document.getElementById('gameOverScreen').classList.add('hidden');
             document.getElementById('shopScreen').classList.add('hidden');
             document.getElementById('pauseScreen').classList.add('hidden');
@@ -1280,7 +1108,6 @@
 
         function endGame() {
             gameState = 'GAMEOVER';
-            saveUserData();
             document.getElementById('finalWave').innerText = wave;
             document.getElementById('finalKills').innerText = kills;
             document.getElementById('finalScore').innerText = score;
@@ -1288,32 +1115,8 @@
         }
 
         // Event Bindings
-        document.getElementById('loginForm').onsubmit = (e) => {
-            e.preventDefault();
-            const user = document.getElementById('usernameInput').value.trim();
-            const pass = document.getElementById('passwordInput').value.trim();
-            if (user && pass) {
-                handleLogin(user, pass);
-            }
-        };
-
-        document.getElementById('guestButton').onclick = () => {
-            activeUser = null;
-            money = 0;
-            FLASHLIGHT_CATALOG.forEach((f, i) => f.unlocked = i === 0);
-            equippedFlashlight = FLASHLIGHT_CATALOG[0];
-            showStartMenu();
-        };
-
-        document.getElementById('switchAccountBtn').onclick = () => {
-            document.getElementById('startScreen').classList.add('hidden');
-            document.getElementById('accountScreen').classList.remove('hidden');
-            document.getElementById('accountError').classList.add('hidden');
-        };
-
         document.getElementById('openShopBtn').onclick = toggleShop;
         document.getElementById('closeShopBtn').onclick = toggleShop;
-        document.getElementById('startButton').onclick = startGame;
         document.getElementById('restartButton').onclick = startGame;
         document.getElementById('resumeButton').onclick = resumeGame;
         document.getElementById('pauseShopButton').onclick = () => {
@@ -1325,7 +1128,8 @@
             startGame();
         };
 
-        // Start animation loop
+        // Start the game immediately and the animation loop
+        startGame();
         requestAnimationFrame(gameLoop);
     </script>
 </body>
