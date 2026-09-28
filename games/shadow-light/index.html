@@ -315,21 +315,25 @@
             },
             // Counters the short-range Floodlight: shoots from outside its reach
             spitter: {
-                name: 'Blood Spitter', radius: 16, speed: 60, hp: 80, damage: 10,
+                name: 'Blood Spitter', radius: 16, speed: 189, hp: 80, damage: 10, // 90% of player speed (210)
                 color: '#7f1d1d', eyeColor: '#fb923c', lightResistance: 0.9,
                 scoreValue: 200, bountyMoney: 30,
                 keepDistance: 480,  // px it tries to stay away from the player
-                fireInterval: 2.5,  // seconds between shots
+                fireInterval: 2.5,  // seconds between shots (twice as often while retreating)
                 boltSpeed: 240,     // px per second
                 boltDamage: 10,
                 hint: 'keeps its distance and spits blood bolts'
             },
             // Counters the long Helios beam: teleports behind the player when lit
             phantom: {
-                name: 'Phantom', radius: 15, speed: 85, hp: 120, damage: 14,
+                name: 'Phantom', radius: 15, speed: 85, hp: 150, damage: 14,
                 color: '#312e81', eyeColor: '#a5b4fc', lightResistance: 0.9,
                 scoreValue: 250, bountyMoney: 35,
-                blinkCooldown: 1.5, // seconds it can be burned after a teleport
+                blinkCooldown: 1.0,   // seconds it can be burned after a teleport
+                blinkDistance: [90, 140], // px behind the player it lands
+                dashTime: 0.7,        // seconds of lunge right after a teleport
+                dashSpeedMultiplier: 2.5,
+                darkEyeAlpha: 0.3,    // its eyes are dim in the dark
                 hint: 'teleports behind you when caught in the light'
             },
             // Counters spinning with the Supernova: the wide beam does not hurt it
@@ -377,7 +381,7 @@
             {
                 id: 'floodlight',
                 name: 'UV Floodlight Array',
-                price: 380,
+                price: 760,
                 unlocked: false,
                 angleWidth: Math.PI / 2.2,
                 distance: 440,
@@ -391,11 +395,11 @@
             {
                 id: 'helios',
                 name: 'Helios Sun Cannon',
-                price: 850,
+                price: 1700,
                 unlocked: false,
-                angleWidth: Math.PI / 3.5,
-                distance: 680,
-                damage: 4.2,
+                angleWidth: Math.PI / 4,
+                distance: 560,
+                damage: 3.2,
                 drain: 1.6,
                 color: 'rgba(239, 68, 68, 0.30)',
                 laserColor: '#ef4444',
@@ -405,15 +409,15 @@
             {
                 id: 'supernova',
                 name: 'Supernova Hyper-Beam',
-                price: 1800,
+                price: 3600,
                 unlocked: false,
-                angleWidth: Math.PI / 1.8,
-                distance: 850,
-                damage: 7.5,
-                drain: 0.8,
+                angleWidth: Math.PI / 2.2,
+                distance: 600,
+                damage: 5.0,
+                drain: 2.0,
                 color: 'rgba(236, 72, 153, 0.35)',
                 laserColor: '#f43f5e',
-                desc: 'Ultimate light weapon. Screen-clearing solar intensity and coverage.',
+                desc: 'Ultimate light weapon. Huge burn power and coverage, but drains the battery fast.',
                 counterEnemy: 'mirror'
             }
         ];
@@ -581,6 +585,7 @@
                 this.maxHp = this.hp;
                 this.fireTimer = this.fireInterval || 0;
                 this.blinkTimer = 0;
+                this.dashTimer = 0;
             }
 
             update(dt) {
@@ -600,7 +605,9 @@
                     this.x = Math.max(this.radius, Math.min(canvas.width - this.radius, this.x));
                     this.y = Math.max(this.radius, Math.min(canvas.height - this.radius, this.y));
 
-                    this.fireTimer -= dt;
+                    // Fires twice as often while actually retreating (not when pinned to a wall)
+                    const retreating = Math.hypot(player.x - this.x, player.y - this.y) > dist + 0.01;
+                    this.fireTimer -= retreating ? dt * 2 : dt;
                     if (this.fireTimer <= 0 && dist > 0) {
                         this.fireTimer = this.fireInterval;
                         bolts.push({
@@ -611,8 +618,13 @@
                         });
                     }
                 } else if (dist > 0) {
-                    this.x += (dx / dist) * this.speed * dt;
-                    this.y += (dy / dist) * this.speed * dt;
+                    let speed = this.speed;
+                    if (this.dashTimer > 0) {
+                        this.dashTimer -= dt;
+                        speed *= this.dashSpeedMultiplier;
+                    }
+                    this.x += (dx / dist) * speed * dt;
+                    this.y += (dy / dist) * speed * dt;
                 }
 
                 if (this.blinkTimer > 0) this.blinkTimer -= dt;
@@ -630,11 +642,13 @@
             blink() {
                 spawnFlashes.push({ x: this.x, y: this.y, color: this.eyeColor, age: 0 });
                 const angle = player.angle + Math.PI + (Math.random() - 0.5) * Math.PI / 2;
-                const dist = 140 + Math.random() * 60;
+                const [minD, maxD] = this.blinkDistance;
+                const dist = minD + Math.random() * (maxD - minD);
                 this.x = Math.max(this.radius, Math.min(canvas.width - this.radius, player.x + Math.cos(angle) * dist));
                 this.y = Math.max(this.radius, Math.min(canvas.height - this.radius, player.y + Math.sin(angle) * dist));
                 spawnFlashes.push({ x: this.x, y: this.y, color: this.eyeColor, age: 0 });
                 this.blinkTimer = this.blinkCooldown;
+                this.dashTimer = this.dashTime;
                 this.isBurning = false;
             }
 
@@ -756,6 +770,7 @@
                     }
                 } else {
                     // Dark silhouette with red glowing eyes
+                    if (this.darkEyeAlpha) ctx.globalAlpha = this.darkEyeAlpha;
                     ctx.fillStyle = this.eyeColor;
                     ctx.shadowColor = this.eyeColor;
                     ctx.shadowBlur = 8;
@@ -1392,7 +1407,7 @@
                             <span class="text-xs font-bold text-emerald-400">${item.price === 0 ? 'FREE' : '$' + item.price}</span>
                         </div>
                         <p class="text-xs text-gray-400 mb-2">${item.desc}</p>
-                        ${item.counterEnemy ? `<p class="text-[11px] text-red-400 mb-3">⚠ Attracts <strong>${ENEMY_TYPES[item.counterEnemy].name}</strong>: ${ENEMY_TYPES[item.counterEnemy].hint}</p>` : ''}
+                        ${item.counterEnemy ? `<p class="text-[11px] text-white mb-3">! Attracts <strong>${ENEMY_TYPES[item.counterEnemy].name}</strong>: ${ENEMY_TYPES[item.counterEnemy].hint}</p>` : ''}
                         <div class="text-[11px] text-gray-300 space-y-1 mb-4">
                             <div class="flex justify-between"><span>Burn Power:</span><strong class="text-amber-400">${item.damage}x</strong></div>
                             <div class="flex justify-between"><span>Range Distance:</span><strong class="text-cyan-400">${item.distance}px</strong></div>
