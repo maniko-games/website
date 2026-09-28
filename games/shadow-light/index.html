@@ -217,6 +217,42 @@
         let spawnTimer = 0;
         let toastTimeout = null;
 
+        // Booster (pickup) drops from destroyed vampires
+        const BOOSTER_DROP_CHANCE = 0.5; // chance that a vampire drops any booster
+
+        // Which booster drops (weights, relative to each other)
+        const BOOSTER_TYPES = [
+            { type: 'money',   weight: 60 },
+            { type: 'health',  weight: 20 },
+            { type: 'battery', weight: 20 }
+        ];
+
+        // Rarity: drop weight, amount given (battery %, HP or $), size and glow.
+        // Rarer boosters are bigger and brighter so players want to grab them.
+        const BOOSTER_RARITIES = [
+            { id: 'common',   name: 'Common',   weight: 50, amount: 5,  radius: 12, lighten: 0,    glow: 12, glowPasses: 1, rim: 0 },
+            { id: 'uncommon', name: 'Uncommon', weight: 30, amount: 10, radius: 14, lighten: 0.1,  glow: 20, glowPasses: 2, rim: 0.35 },
+            { id: 'rare',     name: 'Rare',     weight: 15, amount: 20, radius: 17, lighten: 0.2,  glow: 30, glowPasses: 3, rim: 0.65 },
+            { id: 'epic',     name: 'Epic',     weight: 5,  amount: 50, radius: 21, lighten: 0.3,  glow: 45, glowPasses: 4, rim: 1 }
+        ];
+
+        function pickWeighted(list) {
+            const total = list.reduce((sum, item) => sum + item.weight, 0);
+            let roll = Math.random() * total;
+            for (const item of list) {
+                roll -= item.weight;
+                if (roll < 0) return item;
+            }
+            return list[list.length - 1];
+        }
+
+        // Mixes a #rrggbb color with white; amount 0 = unchanged, 1 = white
+        function lightenColor(hex, amount) {
+            const n = parseInt(hex.slice(1), 16);
+            const mix = c => Math.round(c + (255 - c) * amount);
+            return `rgb(${mix(n >> 16)}, ${mix((n >> 8) & 255)}, ${mix(n & 255)})`;
+        }
+
         // Flashlight Equipment Catalog
         const FLASHLIGHT_CATALOG = [
             {
@@ -539,13 +575,10 @@
                     ));
                 }
 
-                const rand = Math.random();
-                if (rand < 0.4) {
-                    pickups.push(new Pickup(this.x, this.y, 'money'));
-                } else if (rand < 0.6) {
-                    pickups.push(new Pickup(this.x, this.y, 'battery'));
-                } else if (rand < 0.72) {
-                    pickups.push(new Pickup(this.x, this.y, 'health'));
+                if (Math.random() < BOOSTER_DROP_CHANCE) {
+                    const type = pickWeighted(BOOSTER_TYPES).type;
+                    const rarity = pickWeighted(BOOSTER_RARITIES);
+                    pickups.push(new Pickup(this.x, this.y, type, rarity));
                 }
             }
 
@@ -654,11 +687,12 @@
         }
 
         class Pickup {
-            constructor(x, y, type) {
+            constructor(x, y, type, rarity) {
                 this.x = x;
                 this.y = y;
                 this.type = type;
-                this.radius = 12;
+                this.rarity = rarity;
+                this.radius = rarity.radius;
                 this.markedForDeletion = false;
                 this.pulseTimer = 0;
             }
@@ -675,18 +709,33 @@
                 this.markedForDeletion = true;
                 audio.playPickup();
 
+                const amount = this.rarity.amount;
+                const label = this.rarity.name;
                 if (this.type === 'battery') {
-                    player.battery = Math.min(player.batteryMax, player.battery + 50);
-                    showToast("+50% Battery Charge");
+                    player.battery = Math.min(player.batteryMax, player.battery + amount);
+                    showToast(`${label}: +${amount}% Battery Charge`);
                 } else if (this.type === 'health') {
-                    player.hp = Math.min(player.maxHp, player.hp + 35);
-                    showToast("+35 HP Restored");
+                    player.hp = Math.min(player.maxHp, player.hp + amount);
+                    showToast(`${label}: +${amount} HP Restored`);
                 } else if (this.type === 'money') {
-                    const droppedCash = Math.floor(Math.random() * 20) + 20;
-                    money += droppedCash;
-                    showToast(`+$${droppedCash} Bounty Cash`);
+                    money += amount;
+                    showToast(`${label}: +$${amount} Bounty Cash`);
                 }
                 player.updateHUD();
+            }
+
+            // Each extra fill pass stacks the shadow, making the glow brighter;
+            // a light rim marks uncommon and rarer boosters
+            fillWithGlow(ctx) {
+                for (let i = 0; i < this.rarity.glowPasses; i++) ctx.fill();
+                if (this.rarity.rim > 0) {
+                    ctx.save();
+                    ctx.shadowBlur = 0;
+                    ctx.strokeStyle = `rgba(255, 255, 255, ${this.rarity.rim})`;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    ctx.restore();
+                }
             }
 
             draw(ctx) {
@@ -699,32 +748,32 @@
                 ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
 
                 if (this.type === 'battery') {
-                    ctx.fillStyle = '#f59e0b';
-                    ctx.shadowColor = '#f59e0b';
-                    ctx.shadowBlur = 12;
-                    ctx.fill();
+                    ctx.fillStyle = lightenColor('#f59e0b', this.rarity.lighten);
+                    ctx.shadowColor = lightenColor('#f59e0b', this.rarity.lighten);
+                    ctx.shadowBlur = this.rarity.glow;
+                    this.fillWithGlow(ctx);
                     ctx.fillStyle = '#000000';
-                    ctx.font = 'bold 11px sans-serif';
+                    ctx.font = `bold ${Math.round(11 * this.radius / 12)}px sans-serif`;
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
                     ctx.fillText('⚡', 0, 0);
                 } else if (this.type === 'health') {
-                    ctx.fillStyle = '#ef4444';
-                    ctx.shadowColor = '#ef4444';
-                    ctx.shadowBlur = 12;
-                    ctx.fill();
+                    ctx.fillStyle = lightenColor('#ef4444', this.rarity.lighten);
+                    ctx.shadowColor = lightenColor('#ef4444', this.rarity.lighten);
+                    ctx.shadowBlur = this.rarity.glow;
+                    this.fillWithGlow(ctx);
                     ctx.fillStyle = '#ffffff';
-                    ctx.font = 'bold 13px sans-serif';
+                    ctx.font = `bold ${Math.round(13 * this.radius / 12)}px sans-serif`;
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
                     ctx.fillText('+', 0, 0);
                 } else if (this.type === 'money') {
-                    ctx.fillStyle = '#10b981';
-                    ctx.shadowColor = '#10b981';
-                    ctx.shadowBlur = 12;
-                    ctx.fill();
+                    ctx.fillStyle = lightenColor('#10b981', this.rarity.lighten);
+                    ctx.shadowColor = lightenColor('#10b981', this.rarity.lighten);
+                    ctx.shadowBlur = this.rarity.glow;
+                    this.fillWithGlow(ctx);
                     ctx.fillStyle = '#ffffff';
-                    ctx.font = 'bold 12px sans-serif';
+                    ctx.font = `bold ${Math.round(12 * this.radius / 12)}px sans-serif`;
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
                     ctx.fillText('$', 0, 0);
