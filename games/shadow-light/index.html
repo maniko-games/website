@@ -272,6 +272,20 @@
             return `rgb(${mix(n >> 16)}, ${mix((n >> 8) & 255)}, ${mix(n & 255)})`;
         }
 
+        // Emergency batteries: while the flashlight is completely dead, a battery
+        // booster appears somewhere in the arena every EMERGENCY_BATTERY_INTERVAL
+        // seconds. They stop once the battery has any charge again (e.g. one of
+        // them is picked up); boosters already on the ground stay.
+        const EMERGENCY_BATTERY_INTERVAL = 5;
+        // Emergency batteries are always at least this visible in darkness,
+        // otherwise common ones could not be found with the flashlight off
+        const EMERGENCY_BATTERY_DARK_VISIBILITY = 0.25;
+
+        // Short flash marking where a vampire (or emergency battery) appears.
+        // It is drawn above the darkness, so it is visible anywhere.
+        const SPAWN_FLASH_DURATION = 0.6; // seconds
+        const SPAWN_FLASH_RADIUS = 40;    // px, final size of the expanding ring
+
         // Flashlight Equipment Catalog
         const FLASHLIGHT_CATALOG = [
             {
@@ -708,11 +722,14 @@
         }
 
         class Pickup {
-            constructor(x, y, type, rarity) {
+            constructor(x, y, type, rarity, isEmergency = false) {
                 this.x = x;
                 this.y = y;
                 this.type = type;
                 this.rarity = rarity;
+                this.darkVisibility = isEmergency
+                    ? Math.max(rarity.darkVisibility, EMERGENCY_BATTERY_DARK_VISIBILITY)
+                    : rarity.darkVisibility;
                 this.radius = rarity.radius;
                 this.markedForDeletion = false;
                 this.pulseTimer = 0;
@@ -811,6 +828,8 @@
         let enemies = [];
         let particles = [];
         let pickups = [];
+        let spawnFlashes = [];
+        let emergencyBatteryTimer = 0;
 
         function showToast(msg) {
             const toast = document.getElementById('toastMessage');
@@ -959,7 +978,8 @@
         const SPAWN_MIN_DISTANCE = 0.3;
         const SPAWN_EDGE_MARGIN = 30; // px from the arena border
 
-        function spawnEnemy() {
+        // Random point inside the arena, at least SPAWN_MIN_DISTANCE away from the player
+        function randomSpawnPoint() {
             const minDist = Math.min(canvas.width, canvas.height) * SPAWN_MIN_DISTANCE;
             let x, y;
             for (let attempt = 0; attempt < 30; attempt++) {
@@ -967,13 +987,68 @@
                 y = SPAWN_EDGE_MARGIN + Math.random() * (canvas.height - SPAWN_EDGE_MARGIN * 2);
                 if (Math.hypot(x - player.x, y - player.y) >= minDist) break;
             }
+            return { x, y };
+        }
+
+        function spawnEnemy() {
+            const { x, y } = randomSpawnPoint();
 
             const rand = Math.random();
             let type = 'standard';
             if (rand < 0.25) type = 'bat';
             else if (rand < 0.45 && wave >= 2) type = 'tank';
 
-            enemies.push(new Vampire(x, y, type));
+            const vampire = new Vampire(x, y, type);
+            enemies.push(vampire);
+            spawnFlashes.push({ x, y, color: vampire.eyeColor, age: 0 });
+        }
+
+        function spawnEmergencyBattery() {
+            const { x, y } = randomSpawnPoint();
+            pickups.push(new Pickup(x, y, 'battery', pickWeighted(BOOSTER_RARITIES), true));
+            spawnFlashes.push({ x, y, color: '#fde047', age: 0 });
+        }
+
+        function updateEmergencyBatteries(dt) {
+            if (player.battery > 0) {
+                emergencyBatteryTimer = 0;
+                return;
+            }
+            emergencyBatteryTimer += dt;
+            if (emergencyBatteryTimer >= EMERGENCY_BATTERY_INTERVAL) {
+                emergencyBatteryTimer = 0;
+                spawnEmergencyBattery();
+            }
+        }
+
+        // Expanding ring + fading glow, drawn above the darkness
+        function drawSpawnFlashes() {
+            spawnFlashes.forEach(f => {
+                const t = f.age / SPAWN_FLASH_DURATION; // 0 → 1
+                const fade = 1 - t;
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+
+                const glowRadius = SPAWN_FLASH_RADIUS * (0.4 + 0.6 * t);
+                const glow = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, glowRadius);
+                glow.addColorStop(0, f.color);
+                glow.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.globalAlpha = 0.7 * fade;
+                ctx.fillStyle = glow;
+                ctx.beginPath();
+                ctx.arc(f.x, f.y, glowRadius, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.globalAlpha = fade;
+                ctx.strokeStyle = f.color;
+                ctx.lineWidth = 3 * fade + 1;
+                ctx.shadowColor = f.color;
+                ctx.shadowBlur = 15;
+                ctx.beginPath();
+                ctx.arc(f.x, f.y, SPAWN_FLASH_RADIUS * t, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+            });
         }
 
         function updateGame(dt) {
@@ -1017,6 +1092,11 @@
             // Pickups
             pickups.forEach(p => p.update(dt));
             pickups = pickups.filter(p => !p.markedForDeletion);
+            updateEmergencyBatteries(dt);
+
+            // Spawn flashes
+            spawnFlashes.forEach(f => f.age += dt);
+            spawnFlashes = spawnFlashes.filter(f => f.age < SPAWN_FLASH_DURATION);
         }
 
         function drawGame() {
@@ -1052,15 +1132,17 @@
 
             // Rarer boosters shine faintly through the darkness
             pickups.forEach(p => {
-                if (p.rarity.darkVisibility > 0) {
+                if (p.darkVisibility > 0) {
                     ctx.save();
-                    ctx.globalAlpha = p.rarity.darkVisibility;
+                    ctx.globalAlpha = p.darkVisibility;
                     p.inDarkness = true;
                     p.draw(ctx);
                     p.inDarkness = false;
                     ctx.restore();
                 }
             });
+
+            drawSpawnFlashes();
 
             // Render Flashlight Crosshair Reticle
             drawCrosshair();
@@ -1231,6 +1313,8 @@
             enemies = [];
             particles = [];
             pickups = [];
+            spawnFlashes = [];
+            emergencyBatteryTimer = 0;
 
             document.getElementById('gameOverScreen').classList.add('hidden');
             document.getElementById('shopScreen').classList.add('hidden');
