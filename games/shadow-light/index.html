@@ -215,6 +215,7 @@
         let wave = 1;
         let waveEnemiesToSpawn = 0;
         let spawnTimer = 0;
+        let betweenWaves = false; // shop opened automatically after a cleared wave
         let toastTimeout = null;
 
         // Booster (pickup) drops from destroyed vampires
@@ -222,18 +223,20 @@
 
         // Which booster drops (weights, relative to each other)
         const BOOSTER_TYPES = [
-            { type: 'money',   weight: 60 },
+            { type: 'money',   weight: 50 },
             { type: 'health',  weight: 20 },
-            { type: 'battery', weight: 20 }
+            { type: 'battery', weight: 30 }
         ];
 
         // Rarity: drop weight, amount given (battery %, HP or $), size and glow.
         // Rarer boosters are bigger and brighter so players want to grab them.
+        // darkVisibility: how visible the booster is in darkness, relative to
+        // being lit by the flashlight (0 = invisible, 1 = as bright as lit).
         const BOOSTER_RARITIES = [
-            { id: 'common',   name: 'Common',   weight: 50, amount: 5,  radius: 12, lighten: 0,    glow: 12, glowPasses: 1, rim: 0 },
-            { id: 'uncommon', name: 'Uncommon', weight: 30, amount: 10, radius: 14, lighten: 0.1,  glow: 20, glowPasses: 2, rim: 0.35 },
-            { id: 'rare',     name: 'Rare',     weight: 15, amount: 20, radius: 17, lighten: 0.2,  glow: 30, glowPasses: 3, rim: 0.65 },
-            { id: 'epic',     name: 'Epic',     weight: 5,  amount: 50, radius: 21, lighten: 0.3,  glow: 45, glowPasses: 4, rim: 1 }
+            { id: 'common',   name: 'Common',   weight: 50, amount: 5,  radius: 12, lighten: 0,    glow: 12, glowPasses: 1, rim: 0,    darkVisibility: 0 },
+            { id: 'uncommon', name: 'Uncommon', weight: 30, amount: 10, radius: 14, lighten: 0.1,  glow: 20, glowPasses: 2, rim: 0.35, darkVisibility: 0.08 },
+            { id: 'rare',     name: 'Rare',     weight: 15, amount: 20, radius: 17, lighten: 0.2,  glow: 30, glowPasses: 3, rim: 0.65, darkVisibility: 0.15 },
+            { id: 'epic',     name: 'Epic',     weight: 5,  amount: 50, radius: 21, lighten: 0.3,  glow: 45, glowPasses: 4, rim: 1,    darkVisibility: 0.25 }
         ];
 
         function pickWeighted(list) {
@@ -727,7 +730,10 @@
             // Each extra fill pass stacks the shadow, making the glow brighter;
             // a light rim marks uncommon and rarer boosters
             fillWithGlow(ctx) {
-                for (let i = 0; i < this.rarity.glowPasses; i++) ctx.fill();
+                // In darkness a single pass is used: stacked semi-transparent
+                // passes would add up to far more than darkVisibility
+                const passes = this.inDarkness ? 1 : this.rarity.glowPasses;
+                for (let i = 0; i < passes; i++) ctx.fill();
                 if (this.rarity.rim > 0) {
                     ctx.save();
                     ctx.shadowBlur = 0;
@@ -925,7 +931,7 @@
         function startWave(waveNum) {
             wave = waveNum;
             waveEnemiesToSpawn = 8 + wave * 4;
-            spawnTimer = 0;
+            spawnTimer = Infinity; // spawn the first vampire right away, no delay
             document.getElementById('waveDisplay').innerText = wave;
             showToast(`Night ${wave} Begins`);
         }
@@ -958,9 +964,13 @@
                 waveEnemiesToSpawn--;
             }
 
-            // Wave progression
+            // Wave cleared: open the shop; the next wave starts when it is closed
             if (waveEnemiesToSpawn === 0 && enemies.length === 0) {
-                startWave(wave + 1);
+                betweenWaves = true;
+                gameState = 'SHOP';
+                openShopUI();
+                showToast(`Night ${wave} Survived`);
+                return;
             }
 
             // Enemy update & burn detection
@@ -1016,6 +1026,18 @@
             // Render Darkness Fog & Flashlight Beam
             renderLightingAndFog();
 
+            // Rarer boosters shine faintly through the darkness
+            pickups.forEach(p => {
+                if (p.rarity.darkVisibility > 0) {
+                    ctx.save();
+                    ctx.globalAlpha = p.rarity.darkVisibility;
+                    p.inDarkness = true;
+                    p.draw(ctx);
+                    p.inDarkness = false;
+                    ctx.restore();
+                }
+            });
+
             // Render Flashlight Crosshair Reticle
             drawCrosshair();
         }
@@ -1070,11 +1092,18 @@
             } else if (gameState === 'SHOP') {
                 gameState = 'PLAYING';
                 document.getElementById('shopScreen').classList.add('hidden');
+                if (betweenWaves) {
+                    betweenWaves = false;
+                    startWave(wave + 1);
+                }
             }
         }
 
         function openShopUI() {
             document.getElementById('shopMoneyDisplay').innerText = `$${money}`;
+            document.getElementById('closeShopBtn').innerText = betweenWaves
+                ? `▶ Start Night ${wave + 1} [B]`
+                : '✕ Close [B]';
             const catalogGrid = document.getElementById('shopCatalog');
             catalogGrid.innerHTML = '';
 
@@ -1163,6 +1192,7 @@
             score = 0;
             kills = 0;
             wave = 1;
+            betweenWaves = false;
 
             document.getElementById('scoreDisplay').innerText = score;
 
