@@ -286,6 +286,65 @@
         const SPAWN_FLASH_DURATION = 0.6; // seconds
         const SPAWN_FLASH_RADIUS = 40;    // px, final size of the expanding ring
 
+        // Vampire types. Speeds are in px per second.
+        // Types with a `hint` are "counter" enemies: each one joins the spawn pool
+        // once the player owns the flashlight that lists it as `counterEnemy`.
+        const ENEMY_TYPES = {
+            standard: {
+                name: 'Vampire', radius: 17, speed: 66, hp: 90, damage: 16,
+                color: '#881337', eyeColor: '#f43f5e', lightResistance: 0.85,
+                scoreValue: 100, bountyMoney: 15
+            },
+            bat: {
+                name: 'Vampire Bat', radius: 12, speed: 96, hp: 40, damage: 12,
+                color: '#86198f', eyeColor: '#f0abfc', lightResistance: 1.1,
+                scoreValue: 150, bountyMoney: 25
+            },
+            tank: {
+                name: 'Brute', radius: 26, speed: 45, hp: 240, damage: 25,
+                color: '#1e1b4b', eyeColor: '#ef4444', lightResistance: 0.55,
+                scoreValue: 350, bountyMoney: 65
+            },
+            // Counters the narrow Tactical beam: comes as a pack from all sides
+            swarm: {
+                name: 'Shade Swarm', radius: 9, speed: 115, hp: 18, damage: 6,
+                color: '#134e4a', eyeColor: '#5eead4', lightResistance: 1.0,
+                scoreValue: 40, bountyMoney: 5,
+                packSize: 5,
+                hint: 'attacks in packs of 5 from every side'
+            },
+            // Counters the short-range Floodlight: shoots from outside its reach
+            spitter: {
+                name: 'Blood Spitter', radius: 16, speed: 60, hp: 80, damage: 10,
+                color: '#7f1d1d', eyeColor: '#fb923c', lightResistance: 0.9,
+                scoreValue: 200, bountyMoney: 30,
+                keepDistance: 480,  // px it tries to stay away from the player
+                fireInterval: 2.5,  // seconds between shots
+                boltSpeed: 240,     // px per second
+                boltDamage: 10,
+                hint: 'keeps its distance and spits blood bolts'
+            },
+            // Counters the long Helios beam: teleports behind the player when lit
+            phantom: {
+                name: 'Phantom', radius: 15, speed: 85, hp: 120, damage: 14,
+                color: '#312e81', eyeColor: '#a5b4fc', lightResistance: 0.9,
+                scoreValue: 250, bountyMoney: 35,
+                blinkCooldown: 1.5, // seconds it can be burned after a teleport
+                hint: 'teleports behind you when caught in the light'
+            },
+            // Counters spinning with the Supernova: the wide beam does not hurt it
+            mirror: {
+                name: 'Mirror Wraith', radius: 18, speed: 70, hp: 110, damage: 15,
+                color: '#475569', eyeColor: '#f8fafc', lightResistance: 0.85,
+                scoreValue: 300, bountyMoney: 40,
+                reflectBatteryDrain: 10, // battery % per second drained while lit by the wide beam
+                hint: 'reflects the wide beam and drains your battery; only the focused laser burns it'
+            }
+        };
+
+        // Spawn weight of every unlocked counter enemy (base: bat 25, vampire 55/35, brute 20)
+        const COUNTER_ENEMY_WEIGHT = 15;
+
         // Flashlight Equipment Catalog
         const FLASHLIGHT_CATALOG = [
             {
@@ -312,7 +371,8 @@
                 drain: 1.0,
                 color: 'rgba(245, 158, 11, 0.25)',
                 laserColor: '#f97316',
-                desc: 'Concentrated long-distance beam. Deals +80% solar burn damage.'
+                desc: 'Concentrated long-distance beam. Deals +80% solar burn damage.',
+                counterEnemy: 'swarm'
             },
             {
                 id: 'floodlight',
@@ -325,7 +385,8 @@
                 drain: 1.4,
                 color: 'rgba(56, 189, 248, 0.28)',
                 laserColor: '#38bdf8',
-                desc: 'Massive beam width. Burn wide hordes of vampires simultaneously.'
+                desc: 'Massive beam width. Burn wide hordes of vampires simultaneously.',
+                counterEnemy: 'spitter'
             },
             {
                 id: 'helios',
@@ -338,7 +399,8 @@
                 drain: 1.6,
                 color: 'rgba(239, 68, 68, 0.30)',
                 laserColor: '#ef4444',
-                desc: 'High-energy solar plasma beam. Rapidly vaporizes armored vampires.'
+                desc: 'High-energy solar plasma beam. Rapidly vaporizes armored vampires.',
+                counterEnemy: 'phantom'
             },
             {
                 id: 'supernova',
@@ -351,7 +413,8 @@
                 drain: 0.8,
                 color: 'rgba(236, 72, 153, 0.35)',
                 laserColor: '#f43f5e',
-                desc: 'Ultimate light weapon. Screen-clearing solar intensity and coverage.'
+                desc: 'Ultimate light weapon. Screen-clearing solar intensity and coverage.',
+                counterEnemy: 'mirror'
             }
         ];
 
@@ -418,7 +481,7 @@
                 this.x = x;
                 this.y = y;
                 this.radius = 16;
-                this.speed = 3.5;
+                this.speed = 210; // px per second
                 this.maxHp = 100;
                 this.hp = 100;
 
@@ -441,8 +504,8 @@
                     dy *= 0.7071;
                 }
 
-                this.x += dx * this.speed;
-                this.y += dy * this.speed;
+                this.x += dx * this.speed * dt;
+                this.y += dy * this.speed * dt;
 
                 this.x = Math.max(this.radius, Math.min(canvas.width - this.radius, this.x));
                 this.y = Math.max(this.radius, Math.min(canvas.height - this.radius, this.y));
@@ -514,40 +577,10 @@
                 this.markedForDeletion = false;
                 this.isBurning = false;
 
-                if (type === 'bat') {
-                    this.radius = 12;
-                    this.speed = 1.6;
-                    this.hp = 40;
-                    this.maxHp = 40;
-                    this.color = '#86198f';
-                    this.eyeColor = '#f0abfc';
-                    this.lightResistance = 1.1;
-                    this.scoreValue = 150;
-                    this.bountyMoney = 25;
-                    this.damage = 12;
-                } else if (type === 'tank') {
-                    this.radius = 26;
-                    this.speed = 0.75;
-                    this.hp = 240;
-                    this.maxHp = 240;
-                    this.color = '#1e1b4b';
-                    this.eyeColor = '#ef4444';
-                    this.lightResistance = 0.55;
-                    this.scoreValue = 350;
-                    this.bountyMoney = 65;
-                    this.damage = 25;
-                } else {
-                    this.radius = 17;
-                    this.speed = 1.1;
-                    this.hp = 90;
-                    this.maxHp = 90;
-                    this.color = '#881337';
-                    this.eyeColor = '#f43f5e';
-                    this.lightResistance = 0.85;
-                    this.scoreValue = 100;
-                    this.bountyMoney = 15;
-                    this.damage = 16;
-                }
+                Object.assign(this, ENEMY_TYPES[type]);
+                this.maxHp = this.hp;
+                this.fireTimer = this.fireInterval || 0;
+                this.blinkTimer = 0;
             }
 
             update(dt) {
@@ -555,10 +588,34 @@
                 const dy = player.y - this.y;
                 const dist = Math.hypot(dx, dy);
 
-                if (dist > 0) {
-                    this.x += (dx / dist) * this.speed;
-                    this.y += (dy / dist) * this.speed;
+                if (this.type === 'spitter') {
+                    // Hold position around keepDistance and shoot
+                    let dir = 0;
+                    if (dist > this.keepDistance) dir = 1;
+                    else if (dist < this.keepDistance - 80) dir = -1;
+                    if (dist > 0) {
+                        this.x += (dx / dist) * this.speed * dir * dt;
+                        this.y += (dy / dist) * this.speed * dir * dt;
+                    }
+                    this.x = Math.max(this.radius, Math.min(canvas.width - this.radius, this.x));
+                    this.y = Math.max(this.radius, Math.min(canvas.height - this.radius, this.y));
+
+                    this.fireTimer -= dt;
+                    if (this.fireTimer <= 0 && dist > 0) {
+                        this.fireTimer = this.fireInterval;
+                        bolts.push({
+                            x: this.x, y: this.y,
+                            vx: (dx / dist) * this.boltSpeed,
+                            vy: (dy / dist) * this.boltSpeed,
+                            damage: this.boltDamage
+                        });
+                    }
+                } else if (dist > 0) {
+                    this.x += (dx / dist) * this.speed * dt;
+                    this.y += (dy / dist) * this.speed * dt;
                 }
+
+                if (this.blinkTimer > 0) this.blinkTimer -= dt;
 
                 if (dist < this.radius + player.radius) {
                     player.hp -= this.damage * dt;
@@ -569,7 +626,32 @@
                 }
             }
 
+            // Phantom: jump to a random spot behind the player
+            blink() {
+                spawnFlashes.push({ x: this.x, y: this.y, color: this.eyeColor, age: 0 });
+                const angle = player.angle + Math.PI + (Math.random() - 0.5) * Math.PI / 2;
+                const dist = 140 + Math.random() * 60;
+                this.x = Math.max(this.radius, Math.min(canvas.width - this.radius, player.x + Math.cos(angle) * dist));
+                this.y = Math.max(this.radius, Math.min(canvas.height - this.radius, player.y + Math.sin(angle) * dist));
+                spawnFlashes.push({ x: this.x, y: this.y, color: this.eyeColor, age: 0 });
+                this.blinkTimer = this.blinkCooldown;
+                this.isBurning = false;
+            }
+
             burn(dt, powerMultiplier) {
+                if (this.type === 'phantom' && this.blinkTimer <= 0) {
+                    this.blink();
+                    return;
+                }
+                if (this.type === 'mirror' && !player.isFocused) {
+                    // Wide beam is reflected: no damage, battery drains instead
+                    this.isBurning = false;
+                    player.battery = Math.max(0, player.battery - this.reflectBatteryDrain * dt);
+                    if (Math.random() < 0.5) {
+                        particles.push(new Particle(this.x, this.y, '#f8fafc', 4, 1.5, 0.3));
+                    }
+                    return;
+                }
                 this.isBurning = true;
                 const burnDamage = 75 * this.lightResistance * powerMultiplier * equippedFlashlight.damage * dt;
                 this.hp -= burnDamage;
@@ -625,12 +707,13 @@
                 ctx.rotate(angle);
 
                 if (isIlluminated) {
+                    if (this.type === 'phantom') ctx.globalAlpha = 0.7;
                     ctx.beginPath();
                     ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
                     ctx.fillStyle = this.color;
                     ctx.fill();
-                    ctx.lineWidth = 2;
-                    ctx.strokeStyle = '#ef4444';
+                    ctx.lineWidth = this.type === 'mirror' ? 3 : 2;
+                    ctx.strokeStyle = this.type === 'mirror' ? '#e2e8f0' : '#ef4444';
                     ctx.stroke();
 
                     if (this.isBurning) {
@@ -702,8 +785,9 @@
             }
 
             update(dt) {
-                this.x += this.vx;
-                this.y += this.vy;
+                // vx/vy are px per 1/60 s (particle speeds were tuned at 60 FPS)
+                this.x += this.vx * 60 * dt;
+                this.y += this.vy * 60 * dt;
                 this.life -= dt;
                 if (this.life <= 0) this.markedForDeletion = true;
             }
@@ -829,6 +913,8 @@
         let particles = [];
         let pickups = [];
         let spawnFlashes = [];
+        let bolts = []; // Blood Spitter projectiles
+        let seenEnemyTypes = new Set(); // counter enemies already announced this run
         let emergencyBatteryTimer = 0;
 
         function showToast(msg) {
@@ -993,14 +1079,75 @@
         function spawnEnemy() {
             const { x, y } = randomSpawnPoint();
 
-            const rand = Math.random();
-            let type = 'standard';
-            if (rand < 0.25) type = 'bat';
-            else if (rand < 0.45 && wave >= 2) type = 'tank';
+            const type = pickWeighted(enemySpawnPool()).type;
+            const def = ENEMY_TYPES[type];
 
-            const vampire = new Vampire(x, y, type);
-            enemies.push(vampire);
-            spawnFlashes.push({ x, y, color: vampire.eyeColor, age: 0 });
+            if (def.hint && !seenEnemyTypes.has(type)) {
+                seenEnemyTypes.add(type);
+                showToast(`New threat: ${def.name}`);
+            }
+
+            if (type === 'swarm') {
+                // A pack surrounding the player from evenly spread directions
+                const dist = Math.hypot(x - player.x, y - player.y);
+                const baseAngle = Math.random() * Math.PI * 2;
+                for (let i = 0; i < def.packSize; i++) {
+                    const a = baseAngle + (i / def.packSize) * Math.PI * 2;
+                    const px = Math.max(SPAWN_EDGE_MARGIN, Math.min(canvas.width - SPAWN_EDGE_MARGIN, player.x + Math.cos(a) * dist));
+                    const py = Math.max(SPAWN_EDGE_MARGIN, Math.min(canvas.height - SPAWN_EDGE_MARGIN, player.y + Math.sin(a) * dist));
+                    enemies.push(new Vampire(px, py, type));
+                    spawnFlashes.push({ x: px, y: py, color: def.eyeColor, age: 0 });
+                }
+                return;
+            }
+
+            enemies.push(new Vampire(x, y, type));
+            spawnFlashes.push({ x, y, color: def.eyeColor, age: 0 });
+        }
+
+        // Base vampires plus one counter enemy per owned (bought) flashlight
+        function enemySpawnPool() {
+            const pool = [
+                { type: 'bat', weight: 25 },
+                { type: 'standard', weight: wave >= 2 ? 35 : 55 }
+            ];
+            if (wave >= 2) pool.push({ type: 'tank', weight: 20 });
+            FLASHLIGHT_CATALOG.forEach(f => {
+                if (f.unlocked && f.counterEnemy) {
+                    pool.push({ type: f.counterEnemy, weight: COUNTER_ENEMY_WEIGHT });
+                }
+            });
+            return pool;
+        }
+
+        function updateBolts(dt) {
+            bolts.forEach(b => {
+                b.x += b.vx * dt;
+                b.y += b.vy * dt;
+                if (Math.hypot(b.x - player.x, b.y - player.y) < player.radius + 5) {
+                    b.dead = true;
+                    player.hp -= b.damage;
+                    audio.playHit();
+                    if (player.hp <= 0) endGame();
+                } else if (b.x < 0 || b.y < 0 || b.x > canvas.width || b.y > canvas.height) {
+                    b.dead = true;
+                }
+            });
+            bolts = bolts.filter(b => !b.dead);
+        }
+
+        // Bolts glow, so they are drawn above the darkness and can be dodged
+        function drawBolts() {
+            bolts.forEach(b => {
+                ctx.save();
+                ctx.fillStyle = '#fb923c';
+                ctx.shadowColor = '#dc2626';
+                ctx.shadowBlur = 14;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
         }
 
         function spawnEmergencyBattery() {
@@ -1093,6 +1240,7 @@
             pickups.forEach(p => p.update(dt));
             pickups = pickups.filter(p => !p.markedForDeletion);
             updateEmergencyBatteries(dt);
+            updateBolts(dt);
 
             // Spawn flashes
             spawnFlashes.forEach(f => f.age += dt);
@@ -1143,6 +1291,7 @@
             });
 
             drawSpawnFlashes();
+            drawBolts();
 
             // Render Flashlight Crosshair Reticle
             drawCrosshair();
@@ -1242,7 +1391,8 @@
                             <h3 class="font-black text-white text-base">${item.name}</h3>
                             <span class="text-xs font-bold text-emerald-400">${item.price === 0 ? 'FREE' : '$' + item.price}</span>
                         </div>
-                        <p class="text-xs text-gray-400 mb-3">${item.desc}</p>
+                        <p class="text-xs text-gray-400 mb-2">${item.desc}</p>
+                        ${item.counterEnemy ? `<p class="text-[11px] text-red-400 mb-3">⚠ Attracts <strong>${ENEMY_TYPES[item.counterEnemy].name}</strong>: ${ENEMY_TYPES[item.counterEnemy].hint}</p>` : ''}
                         <div class="text-[11px] text-gray-300 space-y-1 mb-4">
                             <div class="flex justify-between"><span>Burn Power:</span><strong class="text-amber-400">${item.damage}x</strong></div>
                             <div class="flex justify-between"><span>Range Distance:</span><strong class="text-cyan-400">${item.distance}px</strong></div>
@@ -1314,6 +1464,8 @@
             particles = [];
             pickups = [];
             spawnFlashes = [];
+            bolts = [];
+            seenEnemyTypes = new Set();
             emergencyBatteryTimer = 0;
 
             document.getElementById('gameOverScreen').classList.add('hidden');
