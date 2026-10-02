@@ -283,6 +283,7 @@
         let wave = 1;
         let waveEnemiesToSpawn = 0;
         let spawnTimer = 0;
+        let deathTimer = 0;
         let betweenWaves = false; // shop opened automatically after a cleared wave
         let toastTimeout = null;
 
@@ -332,6 +333,15 @@
         // Emergency batteries are always at least this visible in darkness,
         // otherwise common ones could not be found with the flashlight off
         const EMERGENCY_BATTERY_DARK_VISIBILITY = 0.25;
+
+        // A vampire that hurts the player stays visible through the darkness this long
+        const ENEMY_REVEAL_DURATION = 2; // seconds (fades out over the last 0.5 s)
+
+        // Pulsing red ring around the player when health is low
+        const LOW_HP_THRESHOLD = 0.3; // share of max HP (0.3 = 30 HP of 100)
+
+        // Death animation before the Game Over screen
+        const DEATH_ANIMATION_DURATION = 1.8; // seconds
 
         // Short flash marking where a vampire (or emergency battery) appears.
         // It is drawn above the darkness, so it is visible anywhere.
@@ -597,6 +607,11 @@
                 ctx.save();
                 ctx.translate(this.x, this.y);
                 ctx.rotate(this.angle);
+                if (gameState === 'DYING') {
+                    const t = Math.min(1, deathTimer / (DEATH_ANIMATION_DURATION * 0.5));
+                    ctx.globalAlpha = 1 - t;
+                    ctx.scale(1 + t * 0.6, 1 + t * 0.6);
+                }
 
                 // Character body
                 ctx.beginPath();
@@ -637,6 +652,7 @@
                 this.fireTimer = this.fireInterval || 0;
                 this.blinkTimer = 0;
                 this.dashTimer = 0;
+                this.revealTimer = 0;
             }
 
             update(dt) {
@@ -662,6 +678,7 @@
                     if (this.fireTimer <= 0 && dist > 0) {
                         this.fireTimer = this.fireInterval;
                         bolts.push({
+                            owner: this,
                             x: this.x, y: this.y,
                             vx: (dx / dist) * this.boltSpeed,
                             vy: (dy / dist) * this.boltSpeed,
@@ -679,9 +696,11 @@
                 }
 
                 if (this.blinkTimer > 0) this.blinkTimer -= dt;
+                if (this.revealTimer > 0) this.revealTimer -= dt;
 
                 if (dist < this.radius + player.radius) {
                     player.hp -= this.damage * dt;
+                    this.revealTimer = ENEMY_REVEAL_DURATION;
                     if (Math.random() < 0.1) audio.playHit();
                     if (player.hp <= 0) {
                         endGame();
@@ -1046,8 +1065,8 @@
 
             // Close-range halo: always on (even with a dead battery) so vampires
             // right next to the player stay visible
-            const haloInner = player.radius + 6;
-            const haloOuter = player.radius + 20;
+            const haloInner = player.radius + 12;
+            const haloOuter = player.radius + 36;
             darkCtx.globalCompositeOperation = 'destination-out';
             const halo = darkCtx.createRadialGradient(player.x, player.y, haloInner, player.x, player.y, haloOuter);
             halo.addColorStop(0, 'rgba(0,0,0,0.95)');
@@ -1193,6 +1212,7 @@
                 if (Math.hypot(b.x - player.x, b.y - player.y) < player.radius + 5) {
                     b.dead = true;
                     player.hp -= b.damage;
+                    b.owner.revealTimer = ENEMY_REVEAL_DURATION;
                     audio.playHit();
                     if (player.hp <= 0) endGame();
                 } else if (b.x < 0 || b.y < 0 || b.x > canvas.width || b.y > canvas.height) {
@@ -1277,10 +1297,10 @@
             }
 
             // Wave cleared: open the shop; the next wave starts when it is closed.
-            // With the top flashlight already bought there is nothing to buy,
-            // so the next wave starts right away.
+            // If there is nothing to buy (top flashlight owned, or not enough cash
+            // for any new one) the next wave starts right away.
             if (waveEnemiesToSpawn === 0 && enemies.length === 0) {
-                if (ownsTopFlashlight()) {
+                if (ownsTopFlashlight() || !canBuyAnyFlashlight()) {
                     startWave(wave + 1);
                     return;
                 }
@@ -1361,11 +1381,103 @@
                 }
             });
 
+            // Vampires that just hurt the player are shown through the darkness
+            enemies.forEach(enemy => {
+                if (enemy.revealTimer > 0) {
+                    ctx.save();
+                    ctx.globalAlpha = Math.min(1, enemy.revealTimer / 0.5);
+                    enemy.draw(ctx, true);
+                    ctx.restore();
+                }
+            });
+
             drawSpawnFlashes();
             drawBolts();
 
+            if (gameState === 'DYING') {
+                drawDeathAnimation();
+                return;
+            }
+
+            drawLowHealthPulse();
+
             // Render Flashlight Crosshair Reticle
             drawCrosshair();
+        }
+
+        // Pulsing red ring (and a faint red vignette) when health is low;
+        // the lower the health, the faster and stronger the pulse
+        function drawLowHealthPulse() {
+            const hpRatio = player.hp / player.maxHp;
+            if (hpRatio > LOW_HP_THRESHOLD) return;
+            const danger = 1 - Math.max(0, hpRatio) / LOW_HP_THRESHOLD; // 0 → 1
+            const t = performance.now() / 1000;
+            const pulse = (Math.sin(t * Math.PI * 2 * (1.2 + 1.8 * danger)) + 1) / 2; // 0 → 1
+
+            ctx.save();
+            ctx.strokeStyle = '#ef4444';
+            ctx.shadowColor = '#ef4444';
+            ctx.shadowBlur = 18;
+            ctx.globalAlpha = 0.35 + 0.55 * pulse;
+            ctx.lineWidth = 2 + 2 * pulse;
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, player.radius + 8 + pulse * 10, 0, Math.PI * 2);
+            ctx.stroke();
+
+            const size = Math.max(canvas.width, canvas.height);
+            const vignette = ctx.createRadialGradient(
+                canvas.width / 2, canvas.height / 2, size * 0.35,
+                canvas.width / 2, canvas.height / 2, size * 0.75
+            );
+            vignette.addColorStop(0, 'rgba(220, 38, 38, 0)');
+            vignette.addColorStop(1, `rgba(220, 38, 38, ${(0.12 + 0.18 * danger) * pulse})`);
+            ctx.globalAlpha = 1;
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = vignette;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.restore();
+        }
+
+        // Red flash, expanding shockwave and the world fading to black
+        function drawDeathAnimation() {
+            const t = Math.min(1, deathTimer / DEATH_ANIMATION_DURATION); // 0 → 1
+
+            ctx.save();
+            // Red flash at the moment of death
+            const flash = Math.max(0, 1 - t * 4);
+            if (flash > 0) {
+                ctx.fillStyle = `rgba(220, 38, 38, ${0.45 * flash})`;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            // Shockwave ring
+            const ringT = Math.min(1, t * 1.6);
+            ctx.globalAlpha = 1 - ringT;
+            ctx.strokeStyle = '#f87171';
+            ctx.shadowColor = '#dc2626';
+            ctx.shadowBlur = 24;
+            ctx.lineWidth = 6 * (1 - ringT) + 1;
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, player.radius + ringT * 160, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Fading red core where the player was
+            const core = ctx.createRadialGradient(player.x, player.y, 0, player.x, player.y, 60);
+            core.addColorStop(0, 'rgba(254, 202, 202, 0.9)');
+            core.addColorStop(0.4, 'rgba(220, 38, 38, 0.6)');
+            core.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.globalAlpha = Math.max(0, 1 - t * 1.4);
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = core;
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, 60, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Darkness closes in over the whole arena
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = `rgba(0, 0, 0, ${Math.max(0, (t - 0.35) / 0.65) * 0.85})`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.restore();
         }
 
         function drawCrosshair() {
@@ -1413,6 +1525,11 @@
 
         function ownsTopFlashlight() {
             return FLASHLIGHT_CATALOG[FLASHLIGHT_CATALOG.length - 1].unlocked;
+        }
+
+        // Is there a flashlight the player has not bought yet and can afford right now?
+        function canBuyAnyFlashlight() {
+            return FLASHLIGHT_CATALOG.some(f => !f.unlocked && money >= f.price);
         }
 
         // Big "Night N" title that zooms in and fades out at the start of each wave
@@ -1522,6 +1639,9 @@
             if (gameState === 'PLAYING') {
                 updateGame(dt);
                 drawGame();
+            } else if (gameState === 'DYING') {
+                updateDying(dt);
+                drawGame();
             } else if (gameState === 'SHOP' || gameState === 'PAUSED') {
                 drawGame();
             }
@@ -1560,7 +1680,34 @@
             startWave(1);
         }
 
+        // Player died: play the death animation first, then show Game Over
         function endGame() {
+            if (gameState !== 'PLAYING') return; // several hits can land in one frame
+            gameState = 'DYING';
+            deathTimer = 0;
+            document.getElementById('waveBanner').classList.remove('play');
+            player.hp = 0;
+            player.updateHUD();
+            for (let i = 0; i < 40; i++) {
+                particles.push(new Particle(
+                    player.x, player.y,
+                    Math.random() < 0.5 ? '#dc2626' : (Math.random() < 0.5 ? '#f87171' : '#fef08a'),
+                    6, Math.random() * 3 + 1.5, 1.2
+                ));
+            }
+        }
+
+        // Only particles keep moving while the death animation plays
+        function updateDying(dt) {
+            deathTimer += dt;
+            particles.forEach(p => p.update(dt));
+            particles = particles.filter(p => !p.markedForDeletion);
+            spawnFlashes.forEach(f => f.age += dt);
+            spawnFlashes = spawnFlashes.filter(f => f.age < SPAWN_FLASH_DURATION);
+            if (deathTimer >= DEATH_ANIMATION_DURATION) showGameOver();
+        }
+
+        function showGameOver() {
             gameState = 'GAMEOVER';
             document.getElementById('finalWave').innerText = wave;
             document.getElementById('finalKills').innerText = kills;
