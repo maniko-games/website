@@ -17,11 +17,26 @@
             user-select: none;
             -webkit-user-select: none;
         }
-        /* Square play area: the whole game (canvas, HUD, menus) lives inside it */
+        /* Layout: [left HUD column] [square arena] [right controls column] */
+        :root {
+            --side-panel-width: 208px;
+            --layout-gap: 16px;
+            /* Arena side: fits between the two columns and within the window height */
+            --arena-size: min(
+                calc(100vw - 2 * var(--side-panel-width) - 4 * var(--layout-gap)),
+                calc(100vh - 2 * var(--layout-gap))
+            );
+        }
+        .side-panel {
+            width: var(--side-panel-width);
+            flex-shrink: 0;
+        }
+        /* Square play area: canvas, wave banner, notifications and menus live inside it */
         #arena {
             position: relative;
-            width: min(calc(100vw - 32px), calc(100vh - 32px));
-            height: min(calc(100vw - 32px), calc(100vh - 32px));
+            flex-shrink: 0;
+            width: var(--arena-size);
+            height: var(--arena-size);
             overflow: hidden;
             border: 2px solid rgba(245, 158, 11, 0.55);
             border-radius: 12px;
@@ -43,115 +58,136 @@
         .glow-cyan { text-shadow: 0 0 12px rgba(6, 182, 212, 0.8); }
         .glow-emerald { text-shadow: 0 0 12px rgba(16, 185, 129, 0.8); }
         
+        /* Shop cards: as many 240px+ columns as fit the shop width */
+        #shopCatalog {
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            align-content: start;
+        }
+
+        /* New wave banner */
+        #waveBanner {
+            opacity: 0;
+        }
+        #waveBanner.play {
+            animation: waveBanner 2.2s ease-out forwards;
+        }
+        #waveBanner.play #waveBannerLine {
+            animation: waveBannerLine 2.2s ease-out forwards;
+        }
+        @keyframes waveBanner {
+            0%   { opacity: 0; transform: scale(0.6); letter-spacing: 0.6em; }
+            18%  { opacity: 1; transform: scale(1.08); letter-spacing: 0.25em; }
+            28%  { transform: scale(1); }
+            75%  { opacity: 1; transform: scale(1); }
+            100% { opacity: 0; transform: scale(1.25); }
+        }
+        @keyframes waveBannerLine {
+            0%   { width: 0; }
+            30%  { width: 70%; }
+            100% { width: 70%; }
+        }
+
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.3); }
         ::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.5); border-radius: 3px; }
     </style>
 </head>
-<body class="flex flex-col h-screen justify-center items-center relative">
+<body class="flex h-screen justify-center items-center" style="gap: var(--layout-gap);">
+
+    <!-- Left column: player status -->
+    <aside class="side-panel flex flex-col gap-3">
+        <!-- Health & Battery Bars -->
+        <div class="glass-panel p-4 rounded-xl flex flex-col gap-3 shadow-lg">
+            <div>
+                <div class="flex justify-between text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                    <span>HP</span>
+                    <span id="hpValue">100 / 100</span>
+                </div>
+                <div class="w-full bg-gray-800 rounded-full h-3 overflow-hidden border border-gray-700">
+                    <div id="hpBar" class="bg-gradient-to-r from-red-600 to-red-500 h-full w-full transition-all duration-150"></div>
+                </div>
+            </div>
+
+            <div>
+                <div class="flex justify-between text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                    <span>UV Battery</span>
+                    <span id="batteryValue">100%</span>
+                </div>
+                <div class="w-full bg-gray-800 rounded-full h-3 overflow-hidden border border-gray-700">
+                    <div id="batteryBar" class="bg-gradient-to-r from-amber-600 via-yellow-400 to-amber-300 h-full w-full transition-all duration-150"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Score, Cash & Night -->
+        <div class="glass-panel px-3 py-3 rounded-xl text-center grid grid-cols-3 gap-1 shadow-lg">
+            <div>
+                <div class="text-[9px] uppercase text-gray-400 font-semibold tracking-wider">Score</div>
+                <div id="scoreDisplay" class="text-lg font-black text-amber-400 glow-amber">0</div>
+            </div>
+            <div class="border-x border-gray-700">
+                <div class="text-[9px] uppercase text-gray-400 font-semibold tracking-wider">Cash</div>
+                <div id="moneyDisplay" class="text-lg font-black text-emerald-400 glow-emerald">$0</div>
+            </div>
+            <div>
+                <div class="text-[9px] uppercase text-gray-400 font-semibold tracking-wider">Night</div>
+                <div id="waveDisplay" class="text-lg font-black text-cyan-400 glow-cyan">1</div>
+            </div>
+        </div>
+
+        <!-- Active Flashlight -->
+        <div class="glass-panel p-4 rounded-xl flex flex-col gap-1 shadow-lg">
+            <div class="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Active Flashlight</div>
+            <div id="equippedName" class="text-sm font-black text-amber-300 uppercase tracking-wide glow-amber">Standard UV Wand</div>
+        </div>
+    </aside>
 
     <div id="arena">
 
     <!-- Main Game Canvas -->
     <canvas id="gameCanvas"></canvas>
 
-    <!-- UI Overlay HUD -->
-    <div id="uiOverlay" class="absolute inset-0 pointer-events-none flex flex-col justify-between p-3">
-        
-        <!-- Top HUD Bar -->
-        <div class="flex justify-between items-start w-full gap-2">
-            <!-- Health & Battery Bars -->
-            <div class="glass-panel p-3 rounded-xl flex flex-col gap-2 w-44 shrink-0 pointer-events-auto shadow-lg">
-                <div>
-                    <div class="flex justify-between text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">
-                        <span>HP</span>
-                        <span id="hpValue">100 / 100</span>
-                    </div>
-                    <div class="w-full bg-gray-800 rounded-full h-3 overflow-hidden border border-gray-700">
-                        <div id="hpBar" class="bg-gradient-to-r from-red-600 to-red-500 h-full w-full transition-all duration-150"></div>
-                    </div>
-                </div>
-
-                <div>
-                    <div class="flex justify-between text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">
-                        <span>UV Battery</span>
-                        <span id="batteryValue">100%</span>
-                    </div>
-                    <div class="w-full bg-gray-800 rounded-full h-3 overflow-hidden border border-gray-700">
-                        <div id="batteryBar" class="bg-gradient-to-r from-amber-600 via-yellow-400 to-amber-300 h-full w-full transition-all duration-150"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Stats & Wave Info -->
-            <div class="relative">
-            <div class="glass-panel px-3 py-2 rounded-xl text-center pointer-events-auto flex items-center gap-3 shadow-lg">
-                <div>
-                    <div class="text-[9px] uppercase text-gray-400 font-semibold tracking-wider">Score</div>
-                    <div id="scoreDisplay" class="text-xl font-black text-amber-400 glow-amber">0</div>
-                </div>
-                <div class="border-r border-gray-700 h-8"></div>
-                <div>
-                    <div class="text-[9px] uppercase text-gray-400 font-semibold tracking-wider">Cash</div>
-                    <div id="moneyDisplay" class="text-xl font-black text-emerald-400 glow-emerald">$0</div>
-                </div>
-                <div class="border-r border-gray-700 h-8"></div>
-                <div>
-                    <div class="text-[9px] uppercase text-gray-400 font-semibold tracking-wider">Night</div>
-                    <div id="waveDisplay" class="text-xl font-black text-cyan-400 glow-cyan">1</div>
-                </div>
-            </div>
-
-                <!-- Notification Toast (under the stats panel) -->
-                <div id="toastMessage" class="absolute top-full left-1/2 -translate-x-1/2 mt-3 whitespace-nowrap text-base sm:text-lg font-bold bg-black/90 border border-amber-500/50 text-amber-300 px-6 py-2 rounded-full opacity-0 transition-opacity duration-300 pointer-events-none uppercase tracking-widest glow-amber shadow-2xl">
-                    Night 1 Starting
-                </div>
-            </div>
-
-            <!-- Flashlight & Shop Info -->
-            <div class="glass-panel p-3 rounded-xl flex flex-col items-end gap-1 w-44 shrink-0 pointer-events-auto shadow-lg">
-                <div class="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Active Flashlight</div>
-                <div id="equippedName" class="text-sm text-right font-black text-amber-300 uppercase tracking-wide glow-amber">Standard UV Wand</div>
-                <div id="modeName" class="text-xs text-emerald-400 font-bold uppercase tracking-wider">Wide Light Flood</div>
-                <button id="openShopBtn" class="mt-2 w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg uppercase tracking-wider transition cursor-pointer shadow flex justify-center items-center gap-1">
-                    🛒 Shop [B]
-                </button>
-            </div>
+    <!-- In-arena overlays: notifications and the new wave banner -->
+    <div id="uiOverlay" class="absolute inset-0 pointer-events-none">
+        <div id="toastMessage" class="absolute top-4 left-1/2 -translate-x-1/2 whitespace-nowrap text-base font-bold bg-black/90 border border-amber-500/50 text-amber-300 px-6 py-2 rounded-full opacity-0 transition-opacity duration-300 uppercase tracking-widest glow-amber shadow-2xl">
+            Night 1 Starting
         </div>
 
-
-        <!-- Bottom Controls Bar -->
-        <div class="glass-panel self-center px-4 py-2 rounded-xl text-[11px] text-gray-300 flex flex-wrap justify-center gap-x-4 gap-y-1 pointer-events-auto shadow-lg border border-gray-800">
-            <span><strong class="text-amber-400">WASD / Arrows:</strong> Move</span>
-            <span><strong class="text-amber-400">Mouse:</strong> Aim Light</span>
-            <span><strong class="text-amber-400">F / Click:</strong> Focus Laser</span>
-            <span><strong class="text-emerald-400">B:</strong> Shop</span>
-            <span><strong class="text-amber-300">ESC:</strong> Pause</span>
+        <div id="waveBanner" class="absolute inset-0 flex flex-col items-center justify-center text-center">
+            <div id="waveBannerSub" class="text-xs sm:text-sm font-bold uppercase tracking-[0.3em] text-gray-300 mb-2"></div>
+            <div id="waveBannerTitle" class="text-5xl sm:text-6xl font-black uppercase text-amber-300 glow-amber">Night 1</div>
+            <div id="waveBannerLine" class="h-0.5 mt-3 bg-gradient-to-r from-transparent via-amber-400 to-transparent"></div>
         </div>
     </div>
 
     <!-- Flashlight Shop Modal -->
-    <div id="shopScreen" class="absolute inset-0 bg-black/90 flex flex-col justify-center items-center p-6 text-center z-50 hidden">
-        <div class="max-w-4xl glass-panel p-6 rounded-2xl border border-emerald-500/40 w-full max-h-[90vh] overflow-y-auto">
-            <div class="flex justify-between items-center mb-4 pb-3 border-b border-gray-800">
-                <div>
-                    <h2 class="text-2xl sm:text-3xl font-black text-emerald-400 glow-emerald uppercase tracking-wider">Solar Flashlight Shop</h2>
-                    <p class="text-xs text-gray-400">Buy high-intensity UV flashlights using bounty cash earned from destroyed vampires</p>
+    <div id="shopScreen" class="absolute inset-0 bg-black/90 flex flex-col justify-center items-center p-4 text-center z-50 hidden">
+        <div class="relative max-w-4xl w-full max-h-full flex flex-col glass-panel rounded-2xl border border-emerald-500/40 overflow-hidden">
+            <!-- Fixed header -->
+            <div class="flex items-center gap-4 px-5 pt-3 pb-2 pr-16 border-b border-gray-800 text-left shrink-0">
+                <div class="flex-1 min-w-0">
+                    <h2 class="text-xl font-black text-emerald-400 glow-emerald uppercase tracking-wider whitespace-nowrap">Flashlight Shop</h2>
+                    <p class="text-xs text-gray-400">Buy UV flashlights with bounty cash</p>
                 </div>
-                <div class="flex items-center gap-4">
-                    <div class="text-right">
-                        <div class="text-[10px] text-gray-400 uppercase font-semibold">Available Funds</div>
-                        <div id="shopMoneyDisplay" class="text-2xl font-black text-emerald-400">$0</div>
-                    </div>
-                    <button id="closeShopBtn" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white font-bold rounded-xl text-xs border border-gray-700 transition cursor-pointer uppercase">
-                        ✕ Close [B]
-                    </button>
+                <div class="text-right shrink-0">
+                    <div class="text-[10px] text-gray-400 uppercase font-semibold">Funds</div>
+                    <div id="shopMoneyDisplay" class="text-xl font-black text-emerald-400">$0</div>
                 </div>
             </div>
+            <button id="closeShopBtn" title="Close [B]" aria-label="Close shop" class="absolute top-2.5 right-3 w-9 h-9 flex items-center justify-center bg-gray-800 hover:bg-gray-700 text-white text-lg font-bold rounded-xl border border-gray-700 transition cursor-pointer">
+                ✕
+            </button>
 
-            <!-- Flashlights Grid -->
-            <div id="shopCatalog" class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
+            <!-- Scrollable flashlight list -->
+            <div id="shopCatalog" class="flex-1 min-h-0 overflow-y-auto grid gap-3 p-5 text-left">
                 <!-- Dynamic shop items render here -->
+            </div>
+
+            <!-- Fixed footer: only between waves -->
+            <div id="shopFooter" class="hidden shrink-0 px-5 py-2.5 border-t border-gray-800">
+                <button id="startNextWaveBtn" class="w-full py-3 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 hover:from-amber-400 hover:to-yellow-300 text-black font-black text-base rounded-xl uppercase tracking-wider transition cursor-pointer shadow-lg active:scale-95">
+                    ▶ Start Night 2 [B]
+                </button>
             </div>
         </div>
     </div>
@@ -207,6 +243,22 @@
     </div>
 
     </div><!-- /#arena -->
+
+    <!-- Right column: fullscreen and controls -->
+    <aside class="side-panel flex flex-col gap-3">
+        <button id="fullscreenBtn" class="glass-panel w-full py-3 rounded-xl text-sm font-bold uppercase tracking-wider text-amber-300 hover:text-amber-200 hover:border-amber-500/60 transition cursor-pointer shadow-lg">
+            ⛶ Fullscreen
+        </button>
+
+        <div class="glass-panel p-4 rounded-xl text-xs text-gray-300 flex flex-col gap-2 shadow-lg">
+            <div class="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-1">Controls</div>
+            <div class="flex justify-between gap-2"><strong class="text-amber-400">WASD / Arrows</strong><span>Move</span></div>
+            <div class="flex justify-between gap-2"><strong class="text-amber-400">Mouse</strong><span>Aim light</span></div>
+            <div class="flex justify-between gap-2"><strong class="text-amber-400">F / Click</strong><span>Focus laser</span></div>
+            <div class="flex justify-between gap-2"><strong class="text-emerald-400">B</strong><span>Shop</span></div>
+            <div class="flex justify-between gap-2"><strong class="text-amber-300">ESC</strong><span>Pause</span></div>
+        </div>
+    </aside>
 
     <script>
         // Sound API (Muted)
@@ -527,7 +579,6 @@
             toggleFocusedBeam() {
                 this.isFocused = !this.isFocused;
                 audio.playToggleMode();
-                document.getElementById('modeName').innerText = this.isFocused ? "Focused UV Laser" : "Wide Light Flood";
                 showToast(this.isFocused ? "UV Beam: Focused Laser" : "UV Beam: Wide Flood");
             }
 
@@ -1071,7 +1122,7 @@
             waveEnemiesToSpawn = 8 + wave * 4;
             spawnTimer = Infinity; // spawn the first vampire right away, no delay
             document.getElementById('waveDisplay').innerText = wave;
-            showToast(`Night ${wave} Begins`);
+            playWaveBanner();
         }
 
         // Vampires spawn at a random point inside the arena, but no closer to
@@ -1225,12 +1276,17 @@
                 waveEnemiesToSpawn--;
             }
 
-            // Wave cleared: open the shop; the next wave starts when it is closed
+            // Wave cleared: open the shop; the next wave starts when it is closed.
+            // With the top flashlight already bought there is nothing to buy,
+            // so the next wave starts right away.
             if (waveEnemiesToSpawn === 0 && enemies.length === 0) {
+                if (ownsTopFlashlight()) {
+                    startWave(wave + 1);
+                    return;
+                }
                 betweenWaves = true;
                 gameState = 'SHOP';
                 openShopUI();
-                showToast(`Night ${wave} Survived`);
                 return;
             }
 
@@ -1355,6 +1411,21 @@
             }
         }
 
+        function ownsTopFlashlight() {
+            return FLASHLIGHT_CATALOG[FLASHLIGHT_CATALOG.length - 1].unlocked;
+        }
+
+        // Big "Night N" title that zooms in and fades out at the start of each wave
+        function playWaveBanner() {
+            const banner = document.getElementById('waveBanner');
+            document.getElementById('waveBannerSub').innerText =
+                wave === 1 ? 'The hunt begins' : `Night ${wave - 1} survived`;
+            document.getElementById('waveBannerTitle').innerText = `Night ${wave}`;
+            banner.classList.remove('play');
+            void banner.offsetWidth; // restart the CSS animation
+            banner.classList.add('play');
+        }
+
         function toggleShop() {
             if (gameState === 'PLAYING') {
                 gameState = 'SHOP';
@@ -1371,9 +1442,8 @@
 
         function openShopUI() {
             document.getElementById('shopMoneyDisplay').innerText = `$${money}`;
-            document.getElementById('closeShopBtn').innerText = betweenWaves
-                ? `▶ Start Night ${wave + 1} [B]`
-                : '✕ Close [B]';
+            document.getElementById('shopFooter').classList.toggle('hidden', !betweenWaves);
+            document.getElementById('startNextWaveBtn').innerText = `▶ Start Night ${wave + 1} [B]`;
             const catalogGrid = document.getElementById('shopCatalog');
             catalogGrid.innerHTML = '';
 
@@ -1469,7 +1539,6 @@
             money = 0;
             FLASHLIGHT_CATALOG.forEach((f, i) => f.unlocked = i === 0);
             equippedFlashlight = FLASHLIGHT_CATALOG[0];
-            document.getElementById('modeName').innerText = "Wide Light Flood";
 
             document.getElementById('scoreDisplay').innerText = score;
 
@@ -1500,8 +1569,29 @@
         }
 
         // Event Bindings
-        document.getElementById('openShopBtn').onclick = toggleShop;
         document.getElementById('closeShopBtn').onclick = toggleShop;
+        document.getElementById('startNextWaveBtn').onclick = toggleShop;
+
+        // Fullscreen (with the webkit-prefixed API for Safari)
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        function isFullscreen() {
+            return document.fullscreenElement || document.webkitFullscreenElement;
+        }
+        fullscreenBtn.onclick = () => {
+            const root = document.documentElement;
+            if (isFullscreen()) {
+                (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+            } else {
+                (root.requestFullscreen || root.webkitRequestFullscreen).call(root);
+            }
+            fullscreenBtn.blur(); // keep Space/Enter from re-triggering it during play
+        };
+        function updateFullscreenButton() {
+            fullscreenBtn.innerText = isFullscreen() ? '✕ Exit Fullscreen' : '⛶ Fullscreen';
+            resizeCanvas();
+        }
+        document.addEventListener('fullscreenchange', updateFullscreenButton);
+        document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
         document.getElementById('restartButton').onclick = startGame;
         document.getElementById('resumeButton').onclick = resumeGame;
         document.getElementById('pauseShopButton').onclick = () => {
