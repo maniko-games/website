@@ -441,47 +441,6 @@
                 src.stop(t + duration + 0.05);
             }
 
-            // Sizzle while light burns vampires — like water hitting hot sauna
-            // stones: a soft airy hiss that bubbles in volume plus tiny crackles.
-            // `level` 0..1 is how close the most-burnt lit vampire is to death.
-            updateBurnHiss(level) {
-                if (!this.ready) return;
-                if (!this.hiss) {
-                    const src = this.ctx.createBufferSource();
-                    src.buffer = this.noise;
-                    src.loop = true;
-                    const highpass = this.ctx.createBiquadFilter();
-                    highpass.type = 'highpass';
-                    highpass.frequency.value = 2500;
-                    this.hissFilter = this.ctx.createBiquadFilter();
-                    this.hissFilter.type = 'peaking';
-                    this.hissFilter.frequency.value = 5000;
-                    this.hissFilter.Q.value = 1.2;
-                    this.hissFilter.gain.value = 6;
-                    this.hiss = this.ctx.createGain();
-                    this.hiss.gain.value = 0;
-                    src.connect(highpass);
-                    highpass.connect(this.hissFilter);
-                    this.hissFilter.connect(this.hiss);
-                    this.hiss.connect(this.sfxBus);
-                    src.start();
-                }
-                const t = this.ctx.currentTime;
-                const base = level > 0 ? 0.0059 + 0.0294 * Math.pow(level, 1.5) : 0;
-                // Random flutter makes the hiss "boil" instead of sounding like static
-                const volume = base * (0.55 + 0.45 * Math.random());
-                this.hiss.gain.setTargetAtTime(volume, t, 0.03);
-                this.hissFilter.frequency.setTargetAtTime(4000 + 3000 * level, t, 0.1);
-
-                // Crackles: tiny pops, more frequent as the vampire nears death
-                if (level > 0 && Math.random() < 0.08 + 0.3 * level) {
-                    this.noiseBurst({
-                        duration: 0.012 + Math.random() * 0.02,
-                        volume: 0.0098 + 0.0245 * level * Math.random(),
-                        freq: 2000 + Math.random() * 5000, q: 6, attack: 0.001
-                    });
-                }
-            }
 
             // Player hurt: a short "oof" — a voice-like buzz shaped by the
             // formants of the vowel "u" (F1 ≈ 320 Hz, F2 ≈ 800 Hz), a quick pitch
@@ -1901,7 +1860,6 @@
             }
 
             // Enemy update & burn detection
-            let burnLevel = 0;
             enemies.forEach(enemy => {
                 const illuminated = isPointInLightCone(enemy.x, enemy.y);
                 if (illuminated) {
@@ -1909,12 +1867,8 @@
                 } else {
                     enemy.isBurning = false;
                 }
-                if (enemy.isBurning) {
-                    burnLevel = Math.max(burnLevel, 0.15 + 0.85 * (1 - Math.max(0, enemy.hp) / enemy.maxHp));
-                }
                 enemy.update(dt);
             });
-            audio.updateBurnHiss(burnLevel);
 
             enemies = enemies.filter(e => !e.markedForDeletion);
 
@@ -2265,7 +2219,6 @@
                 audio.duckMusic(shouldDuck);
                 document.getElementById('arena').classList.toggle('paused', shouldDuck);
             }
-            if (gameState !== 'PLAYING') audio.updateBurnHiss(0);
 
             if (!lastTime) lastTime = timestamp;
             const dt = Math.min((timestamp - lastTime) / 1000, 0.1);
