@@ -467,7 +467,7 @@
                     src.start();
                 }
                 const t = this.ctx.currentTime;
-                const base = level > 0 ? 0.0084 + 0.042 * Math.pow(level, 1.5) : 0;
+                const base = level > 0 ? 0.0059 + 0.0294 * Math.pow(level, 1.5) : 0;
                 // Random flutter makes the hiss "boil" instead of sounding like static
                 const volume = base * (0.55 + 0.45 * Math.random());
                 this.hiss.gain.setTargetAtTime(volume, t, 0.03);
@@ -477,7 +477,7 @@
                 if (level > 0 && Math.random() < 0.08 + 0.3 * level) {
                     this.noiseBurst({
                         duration: 0.012 + Math.random() * 0.02,
-                        volume: 0.014 + 0.035 * level * Math.random(),
+                        volume: 0.0098 + 0.0245 * level * Math.random(),
                         freq: 2000 + Math.random() * 5000, q: 6, attack: 0.001
                     });
                 }
