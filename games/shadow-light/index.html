@@ -250,6 +250,11 @@
             ⛶ Fullscreen
         </button>
 
+        <div class="grid grid-cols-2 gap-3">
+            <button id="musicBtn" title="Music [M]" class="glass-panel py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-lg">♪ Music</button>
+            <button id="sfxBtn" title="Sound effects [N]" class="glass-panel py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-lg">🔊 Sound</button>
+        </div>
+
         <div class="glass-panel p-4 rounded-xl text-xs text-gray-300 flex flex-col gap-2 shadow-lg">
             <div class="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-1">Controls</div>
             <div class="flex justify-between gap-2"><strong class="text-amber-400">WASD / Arrows</strong><span>Move</span></div>
@@ -257,17 +262,413 @@
             <div class="flex justify-between gap-2"><strong class="text-amber-400">F / Click</strong><span>Focus laser</span></div>
             <div class="flex justify-between gap-2"><strong class="text-emerald-400">B</strong><span>Shop</span></div>
             <div class="flex justify-between gap-2"><strong class="text-amber-300">ESC</strong><span>Pause</span></div>
+            <div class="flex justify-between gap-2"><strong class="text-gray-300">M / N</strong><span>Music / sound</span></div>
         </div>
     </aside>
 
     <script>
-        // Sound API (Muted)
+        // ---------------------------------------------------------------
+        // Audio: every sound and the music are synthesized with the Web
+        // Audio API, so there are no audio files to load or license.
+        // Browsers only allow sound after a user gesture, so the engine
+        // starts on the first key press or click.
+        // ---------------------------------------------------------------
+        const AUDIO_SETTINGS = {
+            masterVolume: 0.8,
+            musicVolume: 0.32,
+            sfxVolume: 0.6,
+            musicDuckedVolume: 0.12, // music volume while paused / in the shop
+            baseTempo: 72,           // music BPM on night 1
+            tempoPerWave: 2,         // +BPM per night
+            maxTempo: 100
+        };
+
+        // D minor: Dm – Bb – Gm – A (one chord per bar). MIDI note numbers.
+        const MUSIC_CHORDS = [
+            [50, 53, 57], // Dm
+            [46, 50, 53], // Bb
+            [43, 46, 50], // Gm
+            [45, 49, 52]  // A
+        ];
+
+        function midiToFreq(m) {
+            return 440 * Math.pow(2, (m - 69) / 12);
+        }
+
         class SoundFX {
-            constructor() {}
-            playVampireAsh() {}
-            playHit() {}
-            playToggleMode() {}
-            playPickup() {}
+            constructor() {
+                this.ctx = null;
+                this.musicEnabled = this.loadSetting('shadowLight.music', true);
+                this.sfxEnabled = this.loadSetting('shadowLight.sfx', true);
+                this.lastPlayed = {};   // throttling for sounds that fire every frame
+                this.musicPlaying = false;
+                this.intensity = 1;     // current night, drives tempo and layers
+                this.step = 0;
+                this.nextStepTime = 0;
+                this.schedulerId = null;
+            }
+
+            loadSetting(key, fallback) {
+                try {
+                    const v = localStorage.getItem(key);
+                    return v === null ? fallback : v === '1';
+                } catch (e) {
+                    return fallback;
+                }
+            }
+
+            saveSetting(key, value) {
+                try { localStorage.setItem(key, value ? '1' : '0'); } catch (e) {}
+            }
+
+            // Called on the first user gesture
+            unlock() {
+                if (!this.ctx) {
+                    const AC = window.AudioContext || window.webkitAudioContext;
+                    if (!AC) return;
+                    this.ctx = new AC();
+
+                    const compressor = this.ctx.createDynamicsCompressor();
+                    compressor.connect(this.ctx.destination);
+                    this.master = this.ctx.createGain();
+                    this.master.gain.value = AUDIO_SETTINGS.masterVolume;
+                    this.master.connect(compressor);
+
+                    this.musicBus = this.ctx.createGain();
+                    this.musicBus.gain.value = 0;
+                    this.musicBus.connect(this.master);
+                    this.sfxBus = this.ctx.createGain();
+                    this.sfxBus.gain.value = this.sfxEnabled ? AUDIO_SETTINGS.sfxVolume : 0;
+                    this.sfxBus.connect(this.master);
+
+                    // Echo for the music arpeggio
+                    this.delay = this.ctx.createDelay(1);
+                    this.delay.delayTime.value = 0.42;
+                    const feedback = this.ctx.createGain();
+                    feedback.gain.value = 0.35;
+                    const delayFilter = this.ctx.createBiquadFilter();
+                    delayFilter.type = 'lowpass';
+                    delayFilter.frequency.value = 2200;
+                    this.delay.connect(delayFilter);
+                    delayFilter.connect(feedback);
+                    feedback.connect(this.delay);
+                    delayFilter.connect(this.musicBus);
+
+                    // One second of white noise, reused by many effects
+                    const len = this.ctx.sampleRate;
+                    this.noise = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+                    const data = this.noise.getChannelData(0);
+                    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+                }
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+                if (this.musicEnabled && gameState !== 'GAMEOVER' && gameState !== 'DYING') this.startMusic();
+            }
+
+            get ready() {
+                return this.ctx && this.ctx.state === 'running';
+            }
+
+            // Returns false if the same sound played less than `ms` ago
+            throttle(name, ms) {
+                const now = performance.now();
+                if (this.lastPlayed[name] && now - this.lastPlayed[name] < ms) return false;
+                this.lastPlayed[name] = now;
+                return true;
+            }
+
+            // ---------- building blocks ----------
+            tone({ type = 'sine', freq, freqEnd, start = 0, duration, volume = 0.3, attack = 0.005, bus, filter }) {
+                const t = this.ctx.currentTime + start;
+                const osc = this.ctx.createOscillator();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, t);
+                if (freqEnd) osc.frequency.exponentialRampToValueAtTime(freqEnd, t + duration);
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.0001, t);
+                gain.gain.exponentialRampToValueAtTime(volume, t + attack);
+                gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+                let node = osc;
+                if (filter) {
+                    const f = this.ctx.createBiquadFilter();
+                    f.type = filter.type || 'lowpass';
+                    f.frequency.value = filter.freq;
+                    osc.connect(f);
+                    node = f;
+                }
+                node.connect(gain);
+                gain.connect(bus || this.sfxBus);
+                osc.start(t);
+                osc.stop(t + duration + 0.05);
+                return osc;
+            }
+
+            noiseBurst({ start = 0, duration, volume = 0.3, filterType = 'bandpass', freq = 1000, freqEnd, q = 1, attack = 0.005, bus }) {
+                const t = this.ctx.currentTime + start;
+                const src = this.ctx.createBufferSource();
+                src.buffer = this.noise;
+                const f = this.ctx.createBiquadFilter();
+                f.type = filterType;
+                f.Q.value = q;
+                f.frequency.setValueAtTime(freq, t);
+                if (freqEnd) f.frequency.exponentialRampToValueAtTime(freqEnd, t + duration);
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.0001, t);
+                gain.gain.exponentialRampToValueAtTime(volume, t + attack);
+                gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+                src.connect(f);
+                f.connect(gain);
+                gain.connect(bus || this.sfxBus);
+                src.start(t, Math.random() * 0.5);
+                src.stop(t + duration + 0.05);
+            }
+
+            // ---------- sound effects ----------
+            playVampireAsh() {
+                if (!this.ready || !this.throttle('ash', 60)) return;
+                this.noiseBurst({ duration: 0.45, volume: 0.35, freq: 2500, freqEnd: 300, q: 0.8 });
+                this.tone({ type: 'sine', freq: 140, freqEnd: 45, duration: 0.3, volume: 0.35 });
+            }
+
+            playHit() {
+                if (!this.ready || !this.throttle('hit', 180)) return;
+                this.tone({ type: 'triangle', freq: 180, freqEnd: 60, duration: 0.18, volume: 0.4 });
+                this.noiseBurst({ duration: 0.12, volume: 0.25, filterType: 'lowpass', freq: 900 });
+            }
+
+            playToggleMode(focused) {
+                if (!this.ready) return;
+                const [a, b] = focused ? [520, 880] : [700, 420];
+                this.tone({ type: 'square', freq: a, duration: 0.06, volume: 0.08, filter: { freq: 2500 } });
+                this.tone({ type: 'square', freq: b, start: 0.06, duration: 0.09, volume: 0.08, filter: { freq: 2500 } });
+            }
+
+            // Brighter and longer chime for rarer boosters (rarityIndex 0..3)
+            playPickup(rarityIndex = 0) {
+                if (!this.ready) return;
+                const notes = [76, 79, 83, 88, 91];
+                const count = 2 + rarityIndex;
+                for (let i = 0; i < count; i++) {
+                    this.tone({
+                        type: rarityIndex >= 2 ? 'triangle' : 'sine',
+                        freq: midiToFreq(notes[i]), start: i * 0.055,
+                        duration: 0.25 + rarityIndex * 0.1, volume: 0.16 + rarityIndex * 0.03
+                    });
+                }
+                if (rarityIndex === 3) {
+                    this.noiseBurst({ start: 0.1, duration: 0.6, volume: 0.08, filterType: 'highpass', freq: 6000 });
+                }
+            }
+
+            playSpawn() {
+                if (!this.ready || !this.throttle('spawn', 120)) return;
+                this.noiseBurst({ duration: 0.35, volume: 0.12, freq: 400, freqEnd: 1600, q: 2, attack: 0.15 });
+                this.tone({ type: 'sine', freq: 70, freqEnd: 110, duration: 0.3, volume: 0.12, attack: 0.1 });
+            }
+
+            playBatterySpawn() {
+                if (!this.ready) return;
+                this.tone({ type: 'sine', freq: midiToFreq(84), duration: 0.5, volume: 0.12 });
+                this.tone({ type: 'sine', freq: midiToFreq(91), start: 0.08, duration: 0.6, volume: 0.1 });
+            }
+
+            playSpit() {
+                if (!this.ready || !this.throttle('spit', 80)) return;
+                this.noiseBurst({ duration: 0.18, volume: 0.25, freq: 1800, freqEnd: 500, q: 3 });
+                this.tone({ type: 'sawtooth', freq: 320, freqEnd: 120, duration: 0.15, volume: 0.08, filter: { freq: 1200 } });
+            }
+
+            playBlink() {
+                if (!this.ready) return;
+                this.tone({ type: 'sine', freq: 300, freqEnd: 1800, duration: 0.18, volume: 0.18 });
+                this.tone({ type: 'sine', freq: 1800, freqEnd: 250, start: 0.12, duration: 0.25, volume: 0.15 });
+            }
+
+            // Mirror Wraith reflecting the wide beam (called every frame while lit)
+            playReflect() {
+                if (!this.ready || !this.throttle('reflect', 260)) return;
+                this.tone({ type: 'sine', freq: 2200 + Math.random() * 600, duration: 0.25, volume: 0.06 });
+                this.tone({ type: 'sine', freq: 3300, duration: 0.18, volume: 0.03 });
+            }
+
+            playPowerDown() {
+                if (!this.ready) return;
+                this.tone({ type: 'sawtooth', freq: 600, freqEnd: 40, duration: 0.9, volume: 0.12, filter: { freq: 1500 } });
+            }
+
+            playHeartbeat() {
+                if (!this.ready || !this.throttle('heart', 700)) return;
+                this.tone({ type: 'sine', freq: 65, freqEnd: 40, duration: 0.15, volume: 0.45 });
+                this.tone({ type: 'sine', freq: 60, freqEnd: 38, start: 0.2, duration: 0.15, volume: 0.32 });
+            }
+
+            playWaveStart() {
+                if (!this.ready) return;
+                // Deep bell: a low fundamental with inharmonic partials and a long tail
+                [[55, 0.35], [110, 0.18], [146.8, 0.12], [233, 0.06], [330, 0.04]].forEach(([f, v]) => {
+                    this.tone({ type: 'sine', freq: f, duration: 2.6, volume: v, attack: 0.01 });
+                });
+                this.noiseBurst({ duration: 1.2, volume: 0.08, freq: 300, freqEnd: 3000, q: 1, attack: 0.6 });
+            }
+
+            playDeath() {
+                if (!this.ready) return;
+                this.tone({ type: 'sawtooth', freq: 220, freqEnd: 30, duration: 1.6, volume: 0.25, filter: { freq: 900 } });
+                this.tone({ type: 'sawtooth', freq: 227, freqEnd: 31, duration: 1.6, volume: 0.2, filter: { freq: 900 } });
+                this.noiseBurst({ duration: 1.4, volume: 0.3, filterType: 'lowpass', freq: 2000, freqEnd: 100, attack: 0.02 });
+                this.tone({ type: 'sine', freq: 90, freqEnd: 30, duration: 0.8, volume: 0.5 });
+            }
+
+            playPurchase() {
+                if (!this.ready) return;
+                this.tone({ type: 'square', freq: midiToFreq(83), duration: 0.12, volume: 0.08, filter: { freq: 4000 } });
+                this.tone({ type: 'square', freq: midiToFreq(88), start: 0.09, duration: 0.35, volume: 0.08, filter: { freq: 4000 } });
+                this.noiseBurst({ start: 0.09, duration: 0.3, volume: 0.06, filterType: 'highpass', freq: 7000 });
+            }
+
+            playClick() {
+                if (!this.ready) return;
+                this.tone({ type: 'triangle', freq: 900, freqEnd: 600, duration: 0.05, volume: 0.1 });
+            }
+
+            // ---------- music ----------
+            setIntensity(night) {
+                this.intensity = night;
+            }
+
+            // Lower the music while paused / in the shop
+            duckMusic(ducked) {
+                if (!this.ctx || !this.musicPlaying) return;
+                const target = ducked ? AUDIO_SETTINGS.musicDuckedVolume : AUDIO_SETTINGS.musicVolume;
+                this.musicBus.gain.setTargetAtTime(target, this.ctx.currentTime, 0.3);
+            }
+
+            startMusic() {
+                if (!this.ctx || this.musicPlaying || !this.musicEnabled) return;
+                this.musicPlaying = true;
+                const t = this.ctx.currentTime;
+                this.musicBus.gain.cancelScheduledValues(t);
+                this.musicBus.gain.setValueAtTime(0.0001, t);
+                const ducked = gameState === 'PAUSED' || gameState === 'SHOP';
+                this.musicBus.gain.exponentialRampToValueAtTime(
+                    ducked ? AUDIO_SETTINGS.musicDuckedVolume : AUDIO_SETTINGS.musicVolume, t + 2);
+
+                // Constant drone: two detuned saws through a slowly breathing filter
+                this.drone = [];
+                const droneFilter = this.ctx.createBiquadFilter();
+                droneFilter.type = 'lowpass';
+                droneFilter.frequency.value = 260;
+                const lfo = this.ctx.createOscillator();
+                lfo.frequency.value = 0.08;
+                const lfoGain = this.ctx.createGain();
+                lfoGain.gain.value = 120;
+                lfo.connect(lfoGain);
+                lfoGain.connect(droneFilter.frequency);
+                const droneGain = this.ctx.createGain();
+                droneGain.gain.value = 0.16;
+                droneFilter.connect(droneGain);
+                droneGain.connect(this.musicBus);
+                [midiToFreq(38), midiToFreq(38) * 1.006, midiToFreq(45)].forEach(freq => {
+                    const o = this.ctx.createOscillator();
+                    o.type = 'sawtooth';
+                    o.frequency.value = freq;
+                    o.connect(droneFilter);
+                    o.start();
+                    this.drone.push(o);
+                });
+                lfo.start();
+                this.drone.push(lfo);
+
+                this.step = 0;
+                this.nextStepTime = this.ctx.currentTime + 0.1;
+                this.schedulerId = setInterval(() => this.scheduleMusic(), 25);
+            }
+
+            stopMusic(fade = 1.5) {
+                if (!this.ctx || !this.musicPlaying) return;
+                this.musicPlaying = false;
+                clearInterval(this.schedulerId);
+                const t = this.ctx.currentTime;
+                this.musicBus.gain.cancelScheduledValues(t);
+                this.musicBus.gain.setValueAtTime(this.musicBus.gain.value, t);
+                this.musicBus.gain.linearRampToValueAtTime(0, t + fade);
+                const drone = this.drone;
+                drone.forEach(o => o.stop(t + fade + 0.1));
+                this.drone = [];
+            }
+
+            // Look-ahead scheduler: 16 sixteenth-note steps per bar
+            scheduleMusic() {
+                const tempo = Math.min(AUDIO_SETTINGS.maxTempo,
+                    AUDIO_SETTINGS.baseTempo + (this.intensity - 1) * AUDIO_SETTINGS.tempoPerWave);
+                const stepDur = 60 / tempo / 4;
+                while (this.nextStepTime < this.ctx.currentTime + 0.15) {
+                    this.playMusicStep(this.step, this.nextStepTime - this.ctx.currentTime);
+                    this.nextStepTime += stepDur;
+                    this.step = (this.step + 1) % 64; // 4 bars
+                }
+            }
+
+            playMusicStep(step, start) {
+                const bar = Math.floor(step / 16);
+                const s = step % 16;
+                const chord = MUSIC_CHORDS[bar];
+                const bus = this.musicBus;
+                const night = this.intensity;
+
+                // Bass on beats 1 and 3
+                if (s === 0 || s === 8) {
+                    this.tone({ type: 'triangle', freq: midiToFreq(chord[0] - 12), start, duration: 0.9, volume: 0.28, attack: 0.02, bus });
+                }
+
+                // Arpeggio in eighth notes, two octaves up, into the echo
+                if (s % 2 === 0) {
+                    const pattern = [0, 1, 2, 1, 0, 2, 1, 2];
+                    const note = chord[pattern[s / 2]] + 24;
+                    const t = this.ctx.currentTime + start;
+                    const osc = this.ctx.createOscillator();
+                    osc.type = 'triangle';
+                    osc.frequency.value = midiToFreq(note);
+                    const g = this.ctx.createGain();
+                    g.gain.setValueAtTime(0.0001, t);
+                    g.gain.exponentialRampToValueAtTime(0.07, t + 0.01);
+                    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+                    osc.connect(g);
+                    g.connect(bus);
+                    g.connect(this.delay);
+                    osc.start(t);
+                    osc.stop(t + 0.4);
+                }
+
+                // From night 3: ticking hi-hat on off-beats
+                if (night >= 3 && s % 4 === 2) {
+                    this.noiseBurst({ start, duration: 0.05, volume: 0.05, filterType: 'highpass', freq: 8000, bus });
+                }
+
+                // From night 5: heartbeat-like kick
+                if (night >= 5 && (s === 0 || s === 3 || s === 8 || s === 11)) {
+                    this.tone({ type: 'sine', freq: 110, freqEnd: 40, start, duration: 0.25, volume: 0.35, bus });
+                }
+
+                // From night 8: high tension string swell at the start of each bar
+                if (night >= 8 && s === 0) {
+                    this.tone({ type: 'sawtooth', freq: midiToFreq(chord[2] + 12), start, duration: 1.6, volume: 0.035, attack: 0.6, bus, filter: { freq: 1800 } });
+                }
+            }
+
+            // ---------- toggles ----------
+            setMusicEnabled(on) {
+                this.musicEnabled = on;
+                this.saveSetting('shadowLight.music', on);
+                if (on && gameState !== 'GAMEOVER' && gameState !== 'DYING') this.startMusic();
+                if (on && (gameState === 'PAUSED' || gameState === 'SHOP')) this.duckMusic(true);
+                if (!on) this.stopMusic(0.3);
+            }
+
+            setSfxEnabled(on) {
+                this.sfxEnabled = on;
+                this.saveSetting('shadowLight.sfx', on);
+                if (this.sfxBus) this.sfxBus.gain.setTargetAtTime(on ? AUDIO_SETTINGS.sfxVolume : 0, this.ctx.currentTime, 0.05);
+            }
         }
         const audio = new SoundFX();
 
@@ -512,8 +913,15 @@
         // character (e.key), so controls work with any keyboard layout
         // (e.g. Russian: W types "ц" but its code is still "KeyW").
         const keys = {};
+        // Browsers allow audio only after a user gesture
+        ['keydown', 'pointerdown'].forEach(evt =>
+            window.addEventListener(evt, () => audio.unlock(), { capture: true })
+        );
+
         window.addEventListener('keydown', (e) => {
             keys[e.code] = true;
+            if (e.code === 'KeyM') toggleMusic();
+            if (e.code === 'KeyN') toggleSfx();
             if (e.code === 'Escape') {
                 if (gameState === 'PLAYING') {
                     pauseGame();
@@ -581,14 +989,18 @@
                 const drainRate = equippedFlashlight.drain * (this.isFocused ? 2.5 : 1.0);
                 if (this.battery > 0) {
                     this.battery = Math.max(0, this.battery - drainRate * dt);
+                    if (this.battery === 0) audio.playPowerDown();
                 }
+
+                // Heartbeat while health is low
+                if (this.hp > 0 && this.hp / this.maxHp <= LOW_HP_THRESHOLD) audio.playHeartbeat();
 
                 this.updateHUD();
             }
 
             toggleFocusedBeam() {
                 this.isFocused = !this.isFocused;
-                audio.playToggleMode();
+                audio.playToggleMode(this.isFocused);
                 showToast(this.isFocused ? "UV Beam: Focused Laser" : "UV Beam: Wide Flood");
             }
 
@@ -677,6 +1089,7 @@
                     this.fireTimer -= retreating ? dt * 2 : dt;
                     if (this.fireTimer <= 0 && dist > 0) {
                         this.fireTimer = this.fireInterval;
+                        audio.playSpit();
                         bolts.push({
                             owner: this,
                             x: this.x, y: this.y,
@@ -701,7 +1114,7 @@
                 if (dist < this.radius + player.radius) {
                     player.hp -= this.damage * dt;
                     this.revealTimer = ENEMY_REVEAL_DURATION;
-                    if (Math.random() < 0.1) audio.playHit();
+                    audio.playHit();
                     if (player.hp <= 0) {
                         endGame();
                     }
@@ -710,6 +1123,7 @@
 
             // Phantom: jump to a random spot behind the player
             blink() {
+                audio.playBlink();
                 spawnFlashes.push({ x: this.x, y: this.y, color: this.eyeColor, age: 0 });
                 const angle = player.angle + Math.PI + (Math.random() - 0.5) * Math.PI / 2;
                 const [minD, maxD] = this.blinkDistance;
@@ -731,6 +1145,7 @@
                     // Wide beam is reflected: no damage, battery drains instead
                     this.isBurning = false;
                     player.battery = Math.max(0, player.battery - this.reflectBatteryDrain * dt);
+                    audio.playReflect();
                     if (Math.random() < 0.5) {
                         particles.push(new Particle(this.x, this.y, '#f8fafc', 4, 1.5, 0.3));
                     }
@@ -914,7 +1329,7 @@
 
             collect() {
                 this.markedForDeletion = true;
-                audio.playPickup();
+                audio.playPickup(BOOSTER_RARITIES.indexOf(this.rarity));
 
                 const amount = this.rarity.amount;
                 const label = this.rarity.name;
@@ -1142,6 +1557,8 @@
             spawnTimer = Infinity; // spawn the first vampire right away, no delay
             document.getElementById('waveDisplay').innerText = wave;
             playWaveBanner();
+            audio.setIntensity(wave);
+            audio.playWaveStart();
         }
 
         // Vampires spawn at a random point inside the arena, but no closer to
@@ -1183,11 +1600,13 @@
                     enemies.push(new Vampire(px, py, type));
                     spawnFlashes.push({ x: px, y: py, color: def.eyeColor, age: 0 });
                 }
+                audio.playSpawn();
                 return;
             }
 
             enemies.push(new Vampire(x, y, type));
             spawnFlashes.push({ x, y, color: def.eyeColor, age: 0 });
+            audio.playSpawn();
         }
 
         // Base vampires plus one counter enemy per owned (bought) flashlight
@@ -1240,6 +1659,7 @@
             const { x, y } = randomSpawnPoint();
             pickups.push(new Pickup(x, y, 'battery', pickWeighted(BOOSTER_RARITIES), true));
             spawnFlashes.push({ x, y, color: '#fde047', age: 0 });
+            audio.playBatterySpawn();
         }
 
         function updateEmergencyBatteries(dt) {
@@ -1604,6 +2024,7 @@
                 equippedFlashlight = found;
                 player.updateHUD();
                 openShopUI();
+                audio.playClick();
                 showToast(`Equipped ${found.name}`);
             }
         };
@@ -1616,11 +2037,20 @@
                 equippedFlashlight = found;
                 player.updateHUD();
                 openShopUI();
+                audio.playPurchase();
                 showToast(`Purchased ${found.name}!`);
             }
         };
 
+        let musicDucked = false;
+
         function gameLoop(timestamp) {
+            const shouldDuck = gameState === 'PAUSED' || gameState === 'SHOP';
+            if (shouldDuck !== musicDucked) {
+                musicDucked = shouldDuck;
+                audio.duckMusic(shouldDuck);
+            }
+
             if (!lastTime) lastTime = timestamp;
             const dt = Math.min((timestamp - lastTime) / 1000, 0.1);
             lastTime = timestamp;
@@ -1666,6 +2096,7 @@
             document.getElementById('pauseScreen').classList.add('hidden');
 
             gameState = 'PLAYING';
+            audio.startMusic();
             startWave(1);
         }
 
@@ -1674,6 +2105,8 @@
             if (gameState !== 'PLAYING') return; // several hits can land in one frame
             gameState = 'DYING';
             deathTimer = 0;
+            audio.stopMusic(1.2);
+            audio.playDeath();
             document.getElementById('waveBanner').classList.remove('play');
             player.hp = 0;
             player.updateHUD();
@@ -1707,6 +2140,31 @@
         // Event Bindings
         document.getElementById('closeShopBtn').onclick = toggleShop;
         document.getElementById('startNextWaveBtn').onclick = toggleShop;
+
+        // Music / sound toggles (remembered in this browser)
+        const musicBtn = document.getElementById('musicBtn');
+        const sfxBtn = document.getElementById('sfxBtn');
+        function updateAudioButtons() {
+            musicBtn.innerText = audio.musicEnabled ? '♪ Music' : '♪ Off';
+            sfxBtn.innerText = audio.sfxEnabled ? '🔊 Sound' : '🔇 Off';
+            musicBtn.classList.toggle('text-amber-300', audio.musicEnabled);
+            musicBtn.classList.toggle('text-gray-500', !audio.musicEnabled);
+            sfxBtn.classList.toggle('text-amber-300', audio.sfxEnabled);
+            sfxBtn.classList.toggle('text-gray-500', !audio.sfxEnabled);
+        }
+        function toggleMusic() {
+            audio.unlock();
+            audio.setMusicEnabled(!audio.musicEnabled);
+            updateAudioButtons();
+        }
+        function toggleSfx() {
+            audio.unlock();
+            audio.setSfxEnabled(!audio.sfxEnabled);
+            updateAudioButtons();
+        }
+        musicBtn.onclick = () => { toggleMusic(); musicBtn.blur(); };
+        sfxBtn.onclick = () => { toggleSfx(); sfxBtn.blur(); };
+        updateAudioButtons();
 
         // Fullscreen (with the webkit-prefixed API for Safari)
         const fullscreenBtn = document.getElementById('fullscreenBtn');
