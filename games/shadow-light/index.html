@@ -294,9 +294,9 @@
         // ---------------------------------------------------------------
         const AUDIO_SETTINGS = {
             masterVolume: 0.8,
-            musicVolume: 0.32,
+            musicVolume: 0.42,
             sfxVolume: 0.6,
-            musicDuckedVolume: 0.12, // music volume while paused / in the shop
+            musicDuckedVolume: 0.16, // music volume while paused / in the shop
             baseTempo: 72,           // music BPM on night 1
             tempoPerWave: 2,         // +BPM per night
             maxTempo: 100
@@ -467,7 +467,7 @@
                     src.start();
                 }
                 const t = this.ctx.currentTime;
-                const base = level > 0 ? 0.012 + 0.06 * Math.pow(level, 1.5) : 0;
+                const base = level > 0 ? 0.0084 + 0.042 * Math.pow(level, 1.5) : 0;
                 // Random flutter makes the hiss "boil" instead of sounding like static
                 const volume = base * (0.55 + 0.45 * Math.random());
                 this.hiss.gain.setTargetAtTime(volume, t, 0.03);
@@ -477,7 +477,7 @@
                 if (level > 0 && Math.random() < 0.08 + 0.3 * level) {
                     this.noiseBurst({
                         duration: 0.012 + Math.random() * 0.02,
-                        volume: 0.02 + 0.05 * level * Math.random(),
+                        volume: 0.014 + 0.035 * level * Math.random(),
                         freq: 2000 + Math.random() * 5000, q: 6, attack: 0.001
                     });
                 }
