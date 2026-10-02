@@ -489,9 +489,12 @@
                         this.tone({ type: 'sine', freq: 1800, freqEnd: 2700, duration: 0.07, volume: 0.07 });
                         this.tone({ type: 'sine', freq: 2700, freqEnd: 1300, start: 0.06, duration: 0.1, volume: 0.06 });
                         break;
-                    case 'tank': // deep heavy collapse
+                    case 'tank': // heavy collapse: growl + crunch in the mid range
+                        // (audible on laptop speakers), deep thud for headphones
+                        this.tone({ type: 'sawtooth', freq: 170, freqEnd: 55, duration: 0.5, volume: 0.09, filter: { freq: 900 } });
+                        this.noiseBurst({ duration: 0.4, volume: 0.12, freq: 900, freqEnd: 250, q: 1.5, attack: 0.005 });
+                        this.tone({ type: 'triangle', freq: 230, freqEnd: 90, start: 0.08, duration: 0.18, volume: 0.1 });
                         this.tone({ type: 'sine', freq: 85, freqEnd: 32, duration: 0.55, volume: 0.2 });
-                        this.noiseBurst({ duration: 0.5, volume: 0.07, filterType: 'lowpass', freq: 500, freqEnd: 120 });
                         break;
                     case 'swarm': // little pop
                         this.tone({ type: 'sine', freq: 900, freqEnd: 400, duration: 0.05, volume: 0.06 });
@@ -623,9 +626,9 @@
                 if (!this.ready) return;
                 const pitch = (rightFoot ? 95 : 82) * (0.93 + Math.random() * 0.14);
                 const vol = 0.75 + Math.random() * 0.25;
-                this.tone({ type: 'sine', freq: pitch, freqEnd: pitch * 0.55, duration: 0.07, volume: 0.09 * vol, attack: 0.003 });
+                this.tone({ type: 'sine', freq: pitch, freqEnd: pitch * 0.55, duration: 0.07, volume: 0.135 * vol, attack: 0.003 });
                 this.noiseBurst({
-                    duration: 0.05 + Math.random() * 0.02, volume: 0.035 * vol,
+                    duration: 0.05 + Math.random() * 0.02, volume: 0.0525 * vol,
                     filterType: 'bandpass', freq: (rightFoot ? 1300 : 1100) * (0.85 + Math.random() * 0.3), q: 1.5, attack: 0.002
                 });
             }
