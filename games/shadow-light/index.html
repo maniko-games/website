@@ -337,7 +337,7 @@
         // A vampire that hurts the player stays visible through the darkness this long
         const ENEMY_REVEAL_DURATION = 2; // seconds (fades out over the last 0.5 s)
 
-        // Pulsing red ring around the player when health is low
+        // The arena edges pulse red when health is low
         const LOW_HP_THRESHOLD = 0.3; // share of max HP (0.3 = 30 HP of 100)
 
         // Death animation before the Game Over screen
@@ -1405,7 +1405,7 @@
             drawCrosshair();
         }
 
-        // Pulsing red ring (and a faint red vignette) when health is low;
+        // Pulsing red vignette around the arena edges when health is low;
         // the lower the health, the faster and stronger the pulse
         function drawLowHealthPulse() {
             const hpRatio = player.hp / player.maxHp;
@@ -1415,15 +1415,6 @@
             const pulse = (Math.sin(t * Math.PI * 2 * (1.2 + 1.8 * danger)) + 1) / 2; // 0 → 1
 
             ctx.save();
-            ctx.strokeStyle = '#ef4444';
-            ctx.shadowColor = '#ef4444';
-            ctx.shadowBlur = 18;
-            ctx.globalAlpha = 0.35 + 0.55 * pulse;
-            ctx.lineWidth = 2 + 2 * pulse;
-            ctx.beginPath();
-            ctx.arc(player.x, player.y, player.radius + 8 + pulse * 10, 0, Math.PI * 2);
-            ctx.stroke();
-
             const size = Math.max(canvas.width, canvas.height);
             const vignette = ctx.createRadialGradient(
                 canvas.width / 2, canvas.height / 2, size * 0.35,
@@ -1431,8 +1422,6 @@
             );
             vignette.addColorStop(0, 'rgba(220, 38, 38, 0)');
             vignette.addColorStop(1, `rgba(220, 38, 38, ${(0.12 + 0.18 * danger) * pulse})`);
-            ctx.globalAlpha = 1;
-            ctx.shadowBlur = 0;
             ctx.fillStyle = vignette;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.restore();
