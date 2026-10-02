@@ -617,6 +617,19 @@
                 this.noiseBurst({ start: 0.09, duration: 0.3, volume: 0.06, filterType: 'highpass', freq: 7000 });
             }
 
+            // A soft step on stone: a low thump plus a short muffled scuff.
+            // Left and right feet differ slightly, and every step is a bit random.
+            playFootstep(rightFoot) {
+                if (!this.ready) return;
+                const pitch = (rightFoot ? 95 : 82) * (0.93 + Math.random() * 0.14);
+                const vol = 0.75 + Math.random() * 0.25;
+                this.tone({ type: 'sine', freq: pitch, freqEnd: pitch * 0.55, duration: 0.07, volume: 0.09 * vol, attack: 0.003 });
+                this.noiseBurst({
+                    duration: 0.05 + Math.random() * 0.02, volume: 0.035 * vol,
+                    filterType: 'bandpass', freq: (rightFoot ? 1300 : 1100) * (0.85 + Math.random() * 0.3), q: 1.5, attack: 0.002
+                });
+            }
+
             playClick() {
                 if (!this.ready) return;
                 this.tone({ type: 'triangle', freq: 900, freqEnd: 600, duration: 0.05, volume: 0.1 });
@@ -844,6 +857,9 @@
         // distance of the player glow through the dark, brighter the closer they are
         const DARK_EYES_RADIUS = 180; // px
 
+        // Seconds between the hero's footsteps while moving
+        const FOOTSTEP_INTERVAL = 0.32;
+
         // Death animation before the Game Over screen
         const DEATH_ANIMATION_DURATION = 1.8; // seconds
 
@@ -1067,6 +1083,8 @@
                 this.battery = 100;
                 this.isFocused = false;
                 this.angle = 0;
+                this.stepTimer = 0;
+                this.rightFoot = false;
             }
 
             update(dt) {
@@ -1084,6 +1102,18 @@
 
                 this.x += dx * this.speed * dt;
                 this.y += dy * this.speed * dt;
+
+                // Footsteps while moving; the first one sounds right away
+                if (dx !== 0 || dy !== 0) {
+                    this.stepTimer -= dt;
+                    if (this.stepTimer <= 0) {
+                        this.stepTimer = FOOTSTEP_INTERVAL;
+                        this.rightFoot = !this.rightFoot;
+                        audio.playFootstep(this.rightFoot);
+                    }
+                } else {
+                    this.stepTimer = 0;
+                }
 
                 this.x = Math.max(this.radius, Math.min(canvas.width - this.radius, this.x));
                 this.y = Math.max(this.radius, Math.min(canvas.height - this.radius, this.y));
