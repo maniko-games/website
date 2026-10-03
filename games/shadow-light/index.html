@@ -181,7 +181,7 @@
 
     <!-- In-arena overlays: notifications and the new wave banner -->
     <div id="uiOverlay" class="absolute inset-0 pointer-events-none">
-        <div id="toastMessage" class="absolute top-4 left-1/2 -translate-x-1/2 whitespace-nowrap text-base font-bold bg-black/90 border border-amber-500/50 text-amber-300 px-6 py-2 rounded-full opacity-0 transition-opacity duration-300 uppercase tracking-widest glow-amber shadow-2xl">
+        <div id="toastMessage" class="absolute top-4 left-1/2 -translate-x-1/2 w-max max-w-[90%] text-center text-base font-bold bg-black/90 border border-amber-500/50 text-amber-300 px-6 py-2 rounded-3xl opacity-0 transition-opacity duration-300 uppercase tracking-widest glow-amber shadow-2xl">
             Night 1 Starting
         </div>
 
@@ -623,6 +623,23 @@
                 this.tone({ type: 'sine', freq: 120, freqEnd: 60, duration: 0.4, volume: 0.15 });
             }
 
+            // Stunned after a dash: cartoon "tweet-tweet" chirps
+            playStun() {
+                if (!this.ready) return;
+                [0, 0.16, 0.32].forEach((st, i) => {
+                    this.tone({ type: 'sine', freq: 2200 + i * 150, freqEnd: 3200 + i * 150, start: st, duration: 0.08, volume: 0.06 });
+                    this.tone({ type: 'sine', freq: 3200 + i * 150, freqEnd: 2400, start: st + 0.07, duration: 0.07, volume: 0.05 });
+                });
+            }
+
+            // Boss loses another quarter of HP
+            playPhaseBreak() {
+                if (!this.ready) return;
+                this.tone({ type: 'sawtooth', freq: 160, freqEnd: 80, duration: 0.7, volume: 0.08, filter: { freq: 1000 } });
+                this.noiseBurst({ duration: 0.5, volume: 0.07, freq: 800, freqEnd: 300, q: 1 });
+                this.tone({ type: 'sine', freq: midiToFreq(84), start: 0.15, duration: 0.5, volume: 0.08 });
+            }
+
             // Vampire Lord starts a summon: a rising, shimmering chord
             playSummonCast() {
                 if (!this.ready) return;
@@ -858,6 +875,16 @@
 
         // Booster (pickup) drops from destroyed vampires
         const BOOSTER_DROP_CHANCE = 0.5; // chance that a vampire drops any booster
+        // At most this many boosters drop from vampires per night. On big nights the
+        // drop chance is lowered so they spread over the whole night instead of
+        // running out early (boss rewards and emergency batteries do not count).
+        const MAX_BOOSTERS_PER_NIGHT = 20;
+        let boostersDroppedThisNight = 0;
+
+        function boosterDropChance() {
+            const vampiresThisNight = 8 + wave * 4;
+            return Math.min(BOOSTER_DROP_CHANCE, MAX_BOOSTERS_PER_NIGHT / vampiresThisNight);
+        }
 
         // Which booster drops (weights, relative to each other)
         const BOOSTER_TYPES = [
@@ -994,10 +1021,13 @@
                 chargeSpeed: 430,       // px per second
                 chargeTime: 0.7,        // max dash duration
                 chargeDamage: 18,       // one hit per dash
+                chargeStunTime: 1.5,    // after every dash: stunned, takes double damage
+                stunDamageMultiplier: 2,
                 // II: swarm — a telegraphed summon of a Shade Swarm pack around the player
                 summonInterval: 8,
                 summonCastTime: 1.2,    // seconds of visible casting before they appear
                 summonDistance: 170,    // px from the player
+                maxMinions: 5,          // no new summon while this many of his swarm are alive
                 // III: spit — a fan of 3 blood bolts after a short wind-up
                 spitInterval: 4,
                 spitWindup: 0.5,
@@ -1047,7 +1077,15 @@
         // the player bought right before it (see BOSS_ABILITIES).
         const BOSS_EVERY_NIGHTS = 3;
         const BOSS_BASE_HP = 1152;
-        const BOSS_HP_GROWTH = 1.5;
+        const BOSS_HP_GROWTH = 1.5;        // per incarnation up to BOSS_FAST_GROWTH_UNTIL
+        const BOSS_FAST_GROWTH_UNTIL = 4;  // IV: the player's last flashlight upgrade
+        const BOSS_HP_GROWTH_LATE = 1.2;   // per incarnation after that
+
+        function bossHp(incarnation) {
+            const fast = Math.min(incarnation, BOSS_FAST_GROWTH_UNTIL) - 1;
+            const late = Math.max(0, incarnation - BOSS_FAST_GROWTH_UNTIL);
+            return Math.round(BOSS_BASE_HP * Math.pow(BOSS_HP_GROWTH, fast) * Math.pow(BOSS_HP_GROWTH_LATE, late));
+        }
         const BOSS_REWARDS = [75, 525, 1350, 3100, 6200];
 
         function bossReward(incarnation) {
@@ -1412,8 +1450,9 @@
                 const enraged = this.hp < this.maxHp / 2;
                 const cd = enraged ? this.enragedCooldown : 1;
                 if (this.blinkTimer > 0) this.blinkTimer -= dt;
+                if (this.vulnerableTimer > 0) this.vulnerableTimer -= dt;
 
-                // Dazed after a teleport: stands still, does not attack
+                // Dazed (after a dash or a teleport): stands still, does not attack
                 if (this.dazedTimer > 0) {
                     this.dazedTimer -= dt;
                     return;
@@ -1424,7 +1463,9 @@
                     this.castTimer -= dt;
                     if (this.castTimer <= 0) {
                         this.summonPoints.forEach(p => {
-                            enemies.push(new Vampire(p.x, p.y, 'swarm'));
+                            const minion = new Vampire(p.x, p.y, 'swarm');
+                            this.minions.push(minion);
+                            enemies.push(minion);
                             spawnFlashes.push({ x: p.x, y: p.y, color: ENEMY_TYPES.swarm.eyeColor, age: 0 });
                         });
                         this.summonPoints = null;
@@ -1464,6 +1505,12 @@
                         audio.playHit();
                         if (player.hp <= 0) endGame();
                     }
+                    // Dash over: stunned and vulnerable for a moment
+                    if (this.dashTimer <= 0) {
+                        this.dazedTimer = this.chargeStunTime;
+                        this.vulnerableTimer = this.chargeStunTime;
+                        audio.playStun();
+                    }
                     return;
                 }
 
@@ -1500,7 +1547,10 @@
 
                 if (this.abilities.includes('swarm')) {
                     this.summonTimer -= dt;
-                    if (this.summonTimer <= 0) {
+                    this.minions = this.minions.filter(m => !m.markedForDeletion);
+                    if (this.summonTimer <= 0 && this.minions.length >= this.maxMinions) {
+                        this.summonTimer = this.summonInterval * cd; // enough of his swarm is still alive
+                    } else if (this.summonTimer <= 0) {
                         this.summonTimer = this.summonInterval * cd;
                         this.castTimer = this.summonCastTime;
                         const pack = ENEMY_TYPES.swarm.packSize;
@@ -1531,6 +1581,24 @@
                     const speed = enraged ? this.enragedSpeed : this.speed;
                     this.x += (dx / dist) * speed * dt;
                     this.y += (dy / dist) * speed * dt;
+                }
+            }
+
+            // Every 25% of HP lost: a roar, a flash and a rare battery booster
+            // dropped between him and the player
+            checkPhaseBreak() {
+                while (this.nextPhase > 0 && this.hp > 0 && this.hp / this.maxHp <= this.nextPhase) {
+                    this.nextPhase -= 0.25;
+                    const a = Math.atan2(player.y - this.y, player.x - this.x);
+                    const bx = Math.max(20, Math.min(canvas.width - 20, this.x + Math.cos(a) * (this.radius + 40)));
+                    const by = Math.max(20, Math.min(canvas.height - 20, this.y + Math.sin(a) * (this.radius + 40)));
+                    pickups.push(new Pickup(bx, by, 'battery', BOOSTER_RARITIES[2], true));
+                    spawnFlashes.push({ x: this.x, y: this.y, color: '#dc2626', age: 0 });
+                    spawnFlashes.push({ x: bx, y: by, color: '#fde047', age: 0 });
+                    for (let i = 0; i < 24; i++) {
+                        particles.push(new Particle(this.x, this.y, Math.random() < 0.5 ? '#fbbf24' : '#dc2626', 6, Math.random() * 3 + 1.5, 0.9));
+                    }
+                    audio.playPhaseBreak();
                 }
             }
 
@@ -1604,8 +1672,10 @@
                     return;
                 }
                 this.isBurning = true;
-                const burnDamage = 75 * this.lightResistance * powerMultiplier * equippedFlashlight.damage * dt;
+                let burnDamage = 75 * this.lightResistance * powerMultiplier * equippedFlashlight.damage * dt;
+                if (this.vulnerableTimer > 0) burnDamage *= this.stunDamageMultiplier;
                 this.hp -= burnDamage;
+                if (this.type === 'lord') this.checkPhaseBreak();
 
                 if (Math.random() < 0.8) {
                     particles.push(new Particle(
@@ -1654,7 +1724,8 @@
                     }
                     spawnFlashes.push({ x: this.x, y: this.y, color: '#fbbf24', age: 0 });
                     showToast(`Vampire Lord defeated! +$${this.earned}`);
-                } else if (Math.random() < BOOSTER_DROP_CHANCE) {
+                } else if (boostersDroppedThisNight < MAX_BOOSTERS_PER_NIGHT && Math.random() < boosterDropChance()) {
+                    boostersDroppedThisNight++;
                     const type = pickWeighted(BOOSTER_TYPES).type;
                     const rarity = pickWeighted(BOOSTER_RARITIES);
                     pickups.push(new Pickup(this.x, this.y, type, rarity));
@@ -2085,6 +2156,7 @@
             waveEnemiesToSpawn = isBossNight(wave) ? 0 : 8 + wave * 4;
             spawnTimer = Infinity; // first vampire appears as soon as the intro ends
             emergencyBatteriesThisNight = 0;
+            boostersDroppedThisNight = 0;
             bossSpawnedThisNight = false;
             wavePhase = 'intro';
             wavePhaseTimer = WAVE_INTRO_DURATION;
@@ -2218,7 +2290,10 @@
             const lord = new Vampire(x, y, 'lord');
             lord.incarnation = incarnation;
             lord.abilities = BOSS_ABILITIES.slice(0, incarnation + 1).map(a => a.id);
-            lord.maxHp = lord.hp = Math.round(BOSS_BASE_HP * Math.pow(BOSS_HP_GROWTH, incarnation - 1));
+            lord.maxHp = lord.hp = bossHp(incarnation);
+            lord.nextPhase = 0.75;       // HP share of the next phase break
+            lord.minions = [];
+            lord.vulnerableTimer = 0;
             lord.scoreValue *= incarnation;
             lord.bountyMoney = bossReward(incarnation);
             lord.chargeTimer = 2;   // first charge soon after it appears
@@ -2535,17 +2610,42 @@
                 ctx.fill();
             }
             if (lord.dazedTimer > 0) {
-                ctx.fillStyle = '#fde68a';
+                // Cartoon "seeing stars": five-pointed stars circling above his head
+                ctx.fillStyle = '#fde047';
+                ctx.strokeStyle = '#a16207';
+                ctx.lineWidth = 1;
                 ctx.shadowColor = '#fbbf24';
-                ctx.shadowBlur = 8;
-                for (let i = 0; i < 4; i++) {
-                    const a = t * 4 + i * Math.PI / 2;
-                    ctx.beginPath();
-                    ctx.arc(lord.x + Math.cos(a) * (lord.radius + 6), lord.y - lord.radius * 0.2 + Math.sin(a) * 8, 3, 0, Math.PI * 2);
-                    ctx.fill();
+                ctx.shadowBlur = 10;
+                const cx = lord.x, cy = lord.y - lord.radius * 0.9;
+                for (let i = 0; i < 5; i++) {
+                    const a = t * 3.5 + i * (Math.PI * 2 / 5);
+                    const sx = cx + Math.cos(a) * (lord.radius * 0.95);
+                    const sy = cy + Math.sin(a) * (lord.radius * 0.35); // flat ellipse = orbit seen at an angle
+                    const size = 5 + 2 * (Math.sin(a) + 1) / 2;        // nearer stars look bigger
+                    drawStar(sx, sy, size, t * 6 + i);
+                }
+                if (lord.vulnerableTimer > 0) {
+                    ctx.shadowBlur = 12;
+                    ctx.shadowColor = '#f87171';
+                    ctx.fillStyle = '#fecaca';
+                    ctx.font = 'bold 14px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('×2', lord.x, lord.y + lord.radius + 18);
                 }
             }
             ctx.restore();
+        }
+
+        function drawStar(x, y, r, rotation) {
+            ctx.beginPath();
+            for (let i = 0; i < 10; i++) {
+                const a = rotation + i * Math.PI / 5 - Math.PI / 2;
+                const rr = i % 2 === 0 ? r : r * 0.45;
+                ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
         }
 
         // Pulsing red vignette around the arena edges when health is low;
