@@ -65,28 +65,31 @@
         }
 
         /* ---------- Touch devices (phones, tablets) ----------
-           body.touch is set from JS. The side columns are hidden, the arena takes
-           the whole screen width (portrait) or height (landscape) and a compact
-           HUD sits on top of the arena. Twin-stick: left thumb moves, right aims. */
+           body.touch is set from JS; none of this applies on desktop. The side
+           columns are hidden and the arena fills the whole screen (any aspect
+           ratio). HUD: HP/battery top-left, cash/night + buttons top-right.
+           Twin-stick: left thumb moves, right thumb aims. */
         .touch-only { display: none !important; }
         body.touch .touch-only { display: flex !important; }
         body.touch {
             height: 100dvh;
-            flex-direction: column;
-            justify-content: flex-start;
-            padding-top: 8px;
+            padding: 0;
             touch-action: none;
             overscroll-behavior: none;
             -webkit-touch-callout: none;
         }
         body.touch aside { display: none !important; }
-        body.touch {
-            --arena-size: min(calc(100vw - 16px), calc(100dvh - 16px));
+        body.touch #arena {
+            width: 100vw;
+            height: 100dvh;
+            border: none;
+            border-radius: 0;
+            box-shadow: none;
         }
-        @media (orientation: landscape) {
-            body.touch { justify-content: center; padding-top: 0; }
-        }
-        body.touch #toastMessage { top: 3.6rem; font-size: 0.8rem; padding: 0.35rem 0.9rem; }
+        body.touch #toastMessage { top: 5.4rem; font-size: 0.8rem; padding: 0.35rem 0.9rem; }
+        body.touch #bossBar { bottom: auto; top: 3.6rem; width: 60%; }
+        .touch-hud-left  { top: calc(env(safe-area-inset-top) + 8px);  left: calc(env(safe-area-inset-left) + 8px); }
+        .touch-hud-right { top: calc(env(safe-area-inset-top) + 8px); right: calc(env(safe-area-inset-right) + 8px); }
         #shopCatalog { touch-action: pan-y; }
         /* Menus must fit a ~370 px arena */
         body.touch #pauseScreen,
@@ -111,6 +114,27 @@
             z-index: 60;
             display: none;
         }
+        /* Faded "placeholder" sticks show where the thumbs go until they touch */
+        .stick-ghost {
+            position: fixed;
+            width: 110px; height: 110px;
+            bottom: calc(env(safe-area-inset-bottom) + 40px);
+            border-radius: 50%;
+            border: 2px dashed rgba(245, 158, 11, 0.25);
+            pointer-events: none;
+            z-index: 55;
+        }
+        .stick-ghost .stick-knob { background: rgba(245, 158, 11, 0.18); box-shadow: none; }
+        #moveGhost { left: calc(env(safe-area-inset-left) + 36px); }
+        #aimGhost  { right: calc(env(safe-area-inset-right) + 36px); }
+        #mLaserBtn {
+            right: calc(env(safe-area-inset-right) + 140px);
+            bottom: calc(env(safe-area-inset-bottom) + 160px);
+        }
+        /* Touch controls hide while a menu (shop, pause, game over) is open */
+        body.touch.menu-open .stick-ghost,
+        body.touch.menu-open .stick-base,
+        body.touch.menu-open #mLaserBtn { display: none !important; }
         .stick-knob {
             position: absolute;
             left: 50%; top: 50%;
@@ -236,25 +260,32 @@
     <!-- Main Game Canvas -->
     <canvas id="gameCanvas"></canvas>
 
-    <!-- Compact HUD for touch devices (the side columns are hidden there) -->
-    <div class="touch-only absolute top-2 left-2 right-2 items-center gap-2 z-30 pointer-events-none">
-        <div class="flex-1 glass-panel rounded-lg px-2 py-1.5 flex flex-col gap-1">
-            <div class="relative w-full bg-gray-800 rounded-full h-2 overflow-hidden">
+    <!-- Touch HUD (the side columns are hidden there): HP & battery top-left -->
+    <div class="touch-only touch-hud-left absolute z-30 pointer-events-none flex-col gap-1 w-36 glass-panel rounded-lg px-2 py-1.5">
+        <div class="flex items-center gap-1.5">
+            <span class="text-[9px] font-bold text-gray-400 w-5">HP</span>
+            <div class="flex-1 bg-gray-800 rounded-full h-2 overflow-hidden">
                 <div id="mHpBar" class="bg-red-500 h-full" style="width: 100%"></div>
             </div>
-            <div class="relative w-full bg-gray-800 rounded-full h-2 overflow-hidden">
+        </div>
+        <div class="flex items-center gap-1.5">
+            <span class="text-[9px] font-bold text-gray-400 w-5">UV</span>
+            <div class="flex-1 bg-gray-800 rounded-full h-2 overflow-hidden">
                 <div id="mBatteryBar" class="bg-amber-400 h-full" style="width: 100%"></div>
             </div>
         </div>
-        <div class="glass-panel rounded-lg px-2 py-1 text-xs font-bold leading-tight text-right">
+        <div id="mEmergency" class="text-[10px] font-bold text-yellow-300 hidden">⚡ 5s</div>
+    </div>
+    <!-- ...score, cash & night plus pause / fullscreen top-right -->
+    <div class="touch-only touch-hud-right absolute z-30 items-start gap-1.5 pointer-events-none">
+        <div class="glass-panel rounded-lg px-2 py-1 text-[11px] font-bold leading-tight text-right">
+            <div id="mScore" class="text-amber-400">0</div>
             <div id="mCash" class="text-emerald-400">$0</div>
-            <div id="mEmergency" class="text-yellow-300 hidden">⚡ 5s</div>
             <div id="mNight" class="text-cyan-400">Night 1</div>
         </div>
         <button id="mPauseBtn" aria-label="Pause" class="pointer-events-auto glass-panel rounded-lg w-10 h-10 flex items-center justify-center text-amber-300 text-lg">❚❚</button>
         <button id="mFullscreenBtn" aria-label="Fullscreen" class="pointer-events-auto glass-panel rounded-lg w-10 h-10 flex items-center justify-center text-amber-300 text-lg">⛶</button>
     </div>
-    <div id="mFeed" class="touch-only absolute left-2 top-14 flex-col gap-1 z-20 pointer-events-none"></div>
 
     <!-- In-arena overlays: notifications and the new wave banner -->
     <div id="uiOverlay" class="absolute inset-0 pointer-events-none">
@@ -365,9 +396,11 @@
     </div><!-- /#arena -->
 
     <!-- Touch controls: floating joysticks appear under the thumbs; laser button -->
+    <div id="moveGhost" class="touch-only stick-ghost"><div class="stick-knob"></div></div>
+    <div id="aimGhost" class="touch-only stick-ghost"><div class="stick-knob"></div></div>
     <div id="moveStick" class="stick-base"><div class="stick-knob"></div></div>
     <div id="aimStick" class="stick-base"><div class="stick-knob"></div></div>
-    <button id="mLaserBtn" class="touch-only fixed right-5 bottom-6 w-20 h-20 rounded-full items-center justify-center flex-col glass-panel border-2 border-amber-500/60 text-amber-300 text-[11px] font-black uppercase tracking-wider z-50">
+    <button id="mLaserBtn" class="touch-only fixed w-[72px] h-[72px] rounded-full items-center justify-center flex-col glass-panel border-2 border-amber-500/60 text-amber-300 text-[11px] font-black uppercase tracking-wider z-50">
         <span class="text-2xl leading-none">✦</span>Laser
     </button>
 
@@ -1291,10 +1324,16 @@
             });
         }
 
+        // On phones the world is drawn smaller (×1/TOUCH_WORLD_SCALE): the canvas
+        // has more pixels than its CSS size, so vampires look smaller and the
+        // arena holds more space. Desktop stays 1:1.
+        const TOUCH_WORLD_SCALE = 1.3;
+
         function resizeCanvas() {
             const arena = document.getElementById('arena');
-            canvas.width = arena.clientWidth;
-            canvas.height = arena.clientHeight;
+            const scale = IS_TOUCH ? TOUCH_WORLD_SCALE : 1;
+            canvas.width = Math.round(arena.clientWidth * scale);
+            canvas.height = Math.round(arena.clientHeight * scale);
             // Keep the hero inside after a rotation / resize
             // (the first call runs before `player` exists, hence the try)
             try {
@@ -1437,9 +1476,12 @@
                 this.y = Math.max(this.radius, Math.min(canvas.height - this.radius, this.y));
 
                 if (touch.aimAngle !== null) {
-                    // Right thumb stick: the beam keeps its last direction after release;
-                    // the (virtual) mouse follows so the crosshair and beam code stay the same
-                    this.angle = touch.aimAngle;
+                    // Right thumb stick: the beam turns smoothly towards the stick
+                    // direction (no jitter) and keeps it after release; the (virtual)
+                    // mouse follows so the crosshair and beam code stay the same
+                    let diff = touch.aimAngle - this.angle;
+                    diff = Math.atan2(Math.sin(diff), Math.cos(diff)); // shortest way round
+                    this.angle += diff * (1 - Math.exp(-TOUCH_AIM_TURN_RATE * dt));
                     mouse.x = this.x + Math.cos(this.angle) * 140;
                     mouse.y = this.y + Math.sin(this.angle) * 140;
                 } else {
@@ -1477,6 +1519,7 @@
                     setHudWidth('mHpBar', Math.max(0, (this.hp / this.maxHp) * 100));
                     setHudWidth('mBatteryBar', Math.max(0, (this.battery / this.batteryMax) * 100));
                     setHudText('mCash', `$${money}`);
+                    setHudText('mScore', `${score}`);
                     setHudText('mNight', `Night ${wave}`);
                 }
             }
@@ -2189,7 +2232,8 @@
 
         // A line in the left-column notice feed (boosters, beam mode)
         function showSideNotice(text, colorClass, border) {
-            const feed = document.getElementById(IS_TOUCH ? 'mFeed' : 'pickupFeed');
+            if (IS_TOUCH) return; // phones: no pickup / beam notices, they cover the game
+            const feed = document.getElementById('pickupFeed');
             const item = document.createElement('div');
             item.className = `glass-panel px-4 py-1.5 rounded-lg border ${border} text-sm font-bold ${colorClass} transition-opacity duration-500`;
             item.innerText = text;
@@ -3095,6 +3139,9 @@
                 document.getElementById('arena').classList.toggle('paused', shouldDuck);
             }
 
+            document.body.classList.toggle('menu-open',
+                gameState === 'SHOP' || gameState === 'PAUSED' || gameState === 'GAMEOVER' || gameState === 'DYING');
+
             if (!lastTime) lastTime = timestamp;
             const dt = Math.min((timestamp - lastTime) / 1000, 0.1);
             lastTime = timestamp;
@@ -3192,10 +3239,12 @@
         // ---------- Touch controls ----------
         // Floating twin sticks: a touch on the left half of the screen becomes the
         // move stick, on the right half the aim stick. Buttons and menus get normal taps.
-        const STICK_RADIUS = 50; // px of thumb travel for full speed
+        const STICK_RADIUS = 50;          // px of thumb travel for full speed
+        const AIM_DEADZONE = 18;          // px: smaller thumb moves do not turn the beam
+        const TOUCH_AIM_TURN_RATE = 14;   // how fast the beam follows the stick (higher = snappier)
         const touch = {
-            move: { id: null, ox: 0, oy: 0, x: 0, y: 0, el: document.getElementById('moveStick') },
-            aim:  { id: null, ox: 0, oy: 0, el: document.getElementById('aimStick') },
+            move: { id: null, ox: 0, oy: 0, x: 0, y: 0, el: document.getElementById('moveStick'), ghost: document.getElementById('moveGhost') },
+            aim:  { id: null, ox: 0, oy: 0, el: document.getElementById('aimStick'), ghost: document.getElementById('aimGhost') },
             aimAngle: null
         };
 
@@ -3220,6 +3269,7 @@
                     stick.el.style.left = `${t.clientX}px`;
                     stick.el.style.top = `${t.clientY}px`;
                     stick.el.style.display = 'block';
+                    stick.ghost.style.visibility = 'hidden';
                     placeKnob(stick, 0, 0);
                 }
             }, { passive: false });
@@ -3237,7 +3287,7 @@
                         touch.move.y = dy * k;
                         placeKnob(touch.move, dx, dy);
                     } else if (t.identifier === touch.aim.id) {
-                        if (Math.hypot(dx, dy) > 8) touch.aimAngle = Math.atan2(dy, dx);
+                        if (Math.hypot(dx, dy) > AIM_DEADZONE) touch.aimAngle = Math.atan2(dy, dx);
                         placeKnob(touch.aim, dx, dy);
                     }
                 }
@@ -3249,9 +3299,11 @@
                         touch.move.id = null;
                         touch.move.x = touch.move.y = 0;
                         touch.move.el.style.display = 'none';
+                        touch.move.ghost.style.visibility = '';
                     } else if (t.identifier === touch.aim.id) {
                         touch.aim.id = null; // the beam keeps pointing where it was aimed
                         touch.aim.el.style.display = 'none';
+                        touch.aim.ghost.style.visibility = '';
                     }
                 }
             };
