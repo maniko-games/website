@@ -1258,6 +1258,21 @@
             for (const code in keys) keys[code] = false;
         });
 
+        const hudCache = {};
+
+        function setHudText(id, text) {
+            if (hudCache[id] === text) return;
+            hudCache[id] = text;
+            document.getElementById(id).innerText = text;
+        }
+
+        function setHudWidth(id, percent) {
+            const value = `${percent.toFixed(1)}%`;
+            if (hudCache[id] === value) return;
+            hudCache[id] = value;
+            document.getElementById(id).style.width = value;
+        }
+
         class Player {
             constructor(x, y) {
                 this.x = x;
@@ -1326,15 +1341,14 @@
                 showSideNotice(this.isFocused ? 'Beam: Focused Laser' : 'Beam: Wide Flood', 'text-cyan-300', 'border-cyan-500/50');
             }
 
+            // Called every frame, so the DOM is only touched when a value changed
             updateHUD() {
-                document.getElementById('hpBar').style.width = `${Math.max(0, (this.hp / this.maxHp) * 100)}%`;
-                document.getElementById('hpValue').innerText = `${Math.ceil(this.hp)} / ${this.maxHp}`;
-                
-                document.getElementById('batteryBar').style.width = `${Math.max(0, (this.battery / this.batteryMax) * 100)}%`;
-                document.getElementById('batteryValue').innerText = `${Math.ceil(this.battery)}%`;
-
-                document.getElementById('moneyDisplay').innerText = `$${money}`;
-                document.getElementById('equippedName').innerText = equippedFlashlight.name;
+                setHudText('hpValue', `${Math.ceil(Math.max(0, this.hp))} / ${this.maxHp}`);
+                setHudWidth('hpBar', Math.max(0, (this.hp / this.maxHp) * 100));
+                setHudText('batteryValue', `${Math.ceil(this.battery)}%`);
+                setHudWidth('batteryBar', Math.max(0, (this.battery / this.batteryMax) * 100));
+                setHudText('moneyDisplay', `$${money}`);
+                setHudText('equippedName', equippedFlashlight.name);
             }
 
             draw(ctx) {
@@ -1739,15 +1753,13 @@
                 ctx.translate(this.x, this.y);
                 ctx.rotate(angle);
                 ctx.globalAlpha = (0.5 + 0.5 * strength) * (this.darkEyeAlpha || 1);
-                ctx.fillStyle = this.eyeColor;
-                ctx.shadowColor = this.eyeColor;
-                ctx.shadowBlur = 10 + 16 * strength;
-                ctx.beginPath();
                 const eyeSize = this.type === 'lord' ? 5 : 3;
-                ctx.arc(this.radius * 0.4, -this.radius * 0.3, eyeSize, 0, Math.PI * 2);
-                ctx.arc(this.radius * 0.4, this.radius * 0.3, eyeSize, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fill(); // second pass doubles the glow
+                // Glow radius in 4 steps so only a handful of sprites are ever cached;
+                // two passes double the glow
+                const blur = 10 + 4 * Math.round(strength * 4);
+                const sprite = getGlowSprite(this.eyeColor, this.eyeColor, eyeSize, blur, 2);
+                drawGlowSprite(ctx, sprite, this.radius * 0.4, -this.radius * 0.3);
+                drawGlowSprite(ctx, sprite, this.radius * 0.4, this.radius * 0.3);
                 ctx.restore();
             }
 
@@ -1777,13 +1789,9 @@
                     }
 
                     // Eyes
-                    ctx.fillStyle = '#ffffff';
-                    ctx.shadowColor = '#ef4444';
-                    ctx.shadowBlur = 10;
-                    ctx.beginPath();
-                    ctx.arc(this.radius * 0.4, -this.radius * 0.3, 3, 0, Math.PI * 2);
-                    ctx.arc(this.radius * 0.4, this.radius * 0.3, 3, 0, Math.PI * 2);
-                    ctx.fill();
+                    const litEye = getGlowSprite('#ffffff', '#ef4444', 3, 10);
+                    drawGlowSprite(ctx, litEye, this.radius * 0.4, -this.radius * 0.3);
+                    drawGlowSprite(ctx, litEye, this.radius * 0.4, this.radius * 0.3);
 
                     if (this.type === 'lord') {
                         // Crown seen from above: golden ring with spikes
@@ -1828,13 +1836,9 @@
                 } else {
                     // Dark silhouette with red glowing eyes
                     if (this.darkEyeAlpha) ctx.globalAlpha = this.darkEyeAlpha;
-                    ctx.fillStyle = this.eyeColor;
-                    ctx.shadowColor = this.eyeColor;
-                    ctx.shadowBlur = 8;
-                    ctx.beginPath();
-                    ctx.arc(this.radius * 0.4, -this.radius * 0.3, 2.5, 0, Math.PI * 2);
-                    ctx.arc(this.radius * 0.4, this.radius * 0.3, 2.5, 0, Math.PI * 2);
-                    ctx.fill();
+                    const darkEye = getGlowSprite(this.eyeColor, this.eyeColor, 2.5, 8);
+                    drawGlowSprite(ctx, darkEye, this.radius * 0.4, -this.radius * 0.3);
+                    drawGlowSprite(ctx, darkEye, this.radius * 0.4, this.radius * 0.3);
                 }
 
                 ctx.restore();
@@ -1865,15 +1869,12 @@
             }
 
             draw(ctx) {
-                ctx.save();
-                ctx.globalAlpha = Math.max(0, this.life / this.maxLife);
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                ctx.fillStyle = this.color;
-                ctx.shadowColor = this.color;
-                ctx.shadowBlur = 6;
-                ctx.fill();
-                ctx.restore();
+                const prevAlpha = ctx.globalAlpha;
+                ctx.globalAlpha = prevAlpha * Math.max(0, this.life / this.maxLife);
+                // size rounded to 0.5 px so the sprite cache stays small
+                const sprite = getGlowSprite(this.color, this.color, Math.max(0.5, Math.round(this.size * 2) / 2), 6);
+                drawGlowSprite(ctx, sprite, this.x, this.y);
+                ctx.globalAlpha = prevAlpha;
             }
         }
 
@@ -1935,12 +1936,31 @@
                 }
             }
 
+            // The booster (circle, glow, rim, icon) is rendered once per
+            // type × rarity × dark/lit into a sprite, then drawn with the pulse scale
             draw(ctx) {
+                const key = `pickup|${this.type}|${this.rarity.id}|${this.inDarkness ? 1 : 0}`;
+                let sprite = glowSprites.get(key);
+                if (!sprite) {
+                    const size = Math.ceil((this.radius + this.rarity.glow * 1.6 + 6) * 2);
+                    const c = document.createElement('canvas');
+                    c.width = c.height = size;
+                    const g = c.getContext('2d');
+                    g.translate(size / 2, size / 2);
+                    this.renderShape(g);
+                    sprite = { canvas: c, half: size / 2 };
+                    glowSprites.set(key, sprite);
+                }
+                const scale = 1 + Math.sin(this.pulseTimer) * 0.12;
                 ctx.save();
                 ctx.translate(this.x, this.y);
-                const scale = 1 + Math.sin(this.pulseTimer) * 0.12;
                 ctx.scale(scale, scale);
+                ctx.drawImage(sprite.canvas, -sprite.half, -sprite.half);
+                ctx.restore();
+            }
 
+            renderShape(ctx) {
+                ctx.save();
                 ctx.beginPath();
                 ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
 
@@ -1978,6 +1998,41 @@
 
                 ctx.restore();
             }
+        }
+
+        // ---------------------------------------------------------------
+        // Performance: canvas shadowBlur is very expensive, and with a hundred
+        // vampires it was used hundreds of times per frame. Glowing dots (eyes,
+        // particles, bolts) and whole boosters are drawn once into small cached
+        // sprites and then just copied with drawImage.
+        // ---------------------------------------------------------------
+        const glowSprites = new Map();
+
+        function getGlowSprite(fill, shadow, radius, blur, passes = 1) {
+            const key = `${fill}|${shadow}|${radius}|${blur}|${passes}`;
+            let sprite = glowSprites.get(key);
+            if (!sprite) {
+                const pad = Math.ceil(blur * 1.5) + 2;
+                const size = Math.ceil((radius + pad) * 2);
+                const c = document.createElement('canvas');
+                c.width = c.height = size;
+                const g = c.getContext('2d');
+                g.fillStyle = fill;
+                g.shadowColor = shadow;
+                g.shadowBlur = blur;
+                for (let i = 0; i < passes; i++) {
+                    g.beginPath();
+                    g.arc(size / 2, size / 2, radius, 0, Math.PI * 2);
+                    g.fill();
+                }
+                sprite = { canvas: c, half: size / 2 };
+                glowSprites.set(key, sprite);
+            }
+            return sprite;
+        }
+
+        function drawGlowSprite(context, sprite, x, y) {
+            context.drawImage(sprite.canvas, x - sprite.half, y - sprite.half);
         }
 
         let player = new Player(canvas.width / 2, canvas.height / 2);
@@ -2026,12 +2081,19 @@
             }, 2200);
         }
 
-        function renderLightingAndFog() {
-            const darknessCanvas = document.createElement('canvas');
-            darknessCanvas.width = canvas.width;
-            darknessCanvas.height = canvas.height;
-            const darkCtx = darknessCanvas.getContext('2d');
+        // One offscreen canvas for the darkness layer, reused every frame
+        // (creating a new arena-sized canvas 60 times a second made the garbage
+        // collector stall the game)
+        const darknessCanvas = document.createElement('canvas');
+        const darkCtx = darknessCanvas.getContext('2d');
 
+        function renderLightingAndFog() {
+            if (darknessCanvas.width !== canvas.width || darknessCanvas.height !== canvas.height) {
+                darknessCanvas.width = canvas.width;
+                darknessCanvas.height = canvas.height;
+            }
+            darkCtx.globalCompositeOperation = 'source-over';
+            darkCtx.clearRect(0, 0, canvas.width, canvas.height);
             darkCtx.fillStyle = 'rgba(2, 2, 6, 0.98)';
             darkCtx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -2268,14 +2330,7 @@
         // Bolts glow, so they are drawn above the darkness and can be dodged
         function drawBolts() {
             bolts.forEach(b => {
-                ctx.save();
-                ctx.fillStyle = '#fb923c';
-                ctx.shadowColor = '#dc2626';
-                ctx.shadowBlur = 14;
-                ctx.beginPath();
-                ctx.arc(b.x, b.y, b.big ? 8 : 5, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.restore();
+                drawGlowSprite(ctx, getGlowSprite('#fb923c', '#dc2626', b.big ? 8 : 5, 14), b.x, b.y);
             });
         }
 
