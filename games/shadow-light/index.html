@@ -610,6 +610,15 @@
                 this.tone({ type: 'sine', freq: 3300, duration: 0.18, volume: 0.03 });
             }
 
+            // Vampire Lord starts a summon: a rising, shimmering chord
+            playSummonCast() {
+                if (!this.ready) return;
+                [57, 61, 64].forEach((m, i) => {
+                    this.tone({ type: 'triangle', freq: midiToFreq(m), freqEnd: midiToFreq(m + 12), duration: 1.2, volume: 0.06, attack: 0.3 + i * 0.1 });
+                });
+                this.noiseBurst({ duration: 1.1, volume: 0.05, freq: 1500, freqEnd: 5000, q: 2, attack: 0.5 });
+            }
+
             // Vampire Lord appears: a deep growl rising into a howl
             playLordRoar() {
                 if (!this.ready) return;
@@ -961,13 +970,29 @@
             },
             // Boss of every BOSS_EVERY_NIGHTS-th night; HP is set per incarnation
             lord: {
-                name: 'Vampire Lord', radius: 36, speed: 38, hp: 1200, damage: 35,
+                name: 'Vampire Lord', radius: 36, speed: 38, hp: 1152, damage: 35,
                 color: '#450a0a', eyeColor: '#fbbf24', lightResistance: 0.45,
-                scoreValue: 2000, bountyMoney: 150,
-                summonInterval: 6,     // seconds between summoning bats
-                summonCount: 3,
-                enragedSpeed: 58,      // below half HP it moves and summons faster
-                enragedSummonInterval: 4
+                scoreValue: 2000, bountyMoney: 75,
+                enragedSpeed: 58,       // below half HP: faster, abilities recharge faster
+                enragedCooldown: 0.75,  // ability cooldowns × this when enraged
+                // I: swarm — a telegraphed summon of a Shade Swarm pack around the player
+                summonInterval: 8,
+                summonCastTime: 1.2,    // seconds of visible casting before they appear
+                summonDistance: 170,    // px from the player
+                // II: spit — a fan of 3 blood bolts after a short wind-up
+                spitInterval: 4,
+                spitWindup: 0.5,
+                spitBolts: 3,
+                spitSpread: 0.28,       // radians between bolts
+                spitBoltSpeed: 260,
+                spitBoltDamage: 12,
+                // III: blink — when held in the light it teleports behind the player
+                blinkLitTime: 1.0,      // seconds in the light before it teleports
+                blinkCooldown: 6,
+                blinkDistance: [160, 220],
+                dazedTime: 1.6,         // after a teleport it does not attack for this long
+                // IV: mirror — the wide beam is reflected, only the focused laser burns it
+                reflectBatteryDrain: 8
             },
             // Counters spinning with the Supernova: the wide beam does not hurt it
             mirror: {
@@ -979,11 +1004,37 @@
             }
         };
 
+        // Income: every vampire's bountyMoney and every money booster are multiplied
+        // by INCOME_SCALE × INCOME_GROWTH^(night − 1). Tuned so that the next
+        // flashlight becomes affordable right before each boss night:
+        // Tactical after night 2, Floodlight after 5, Helios after 8, Supernova after 11.
+        const INCOME_SCALE = 0.2;
+        const INCOME_GROWTH = 1.16;
+
+        function incomeMultiplier() {
+            return INCOME_SCALE * Math.pow(INCOME_GROWTH, wave - 1);
+        }
+
+        function scaledCash(amount) {
+            return Math.max(1, Math.round(amount * incomeMultiplier()));
+        }
+
         // The Vampire Lord comes every BOSS_EVERY_NIGHTS nights (3, 6, 9, ...).
-        // Each new incarnation has BOSS_HP_GROWTH times the HP of the previous one.
+        // Each new incarnation has BOSS_HP_GROWTH times the HP of the previous one,
+        // pays BOSS_REWARD × 2^(incarnation − 1) and learns the trick of the
+        // flashlight the player could just buy (see BOSS_ABILITIES).
         const BOSS_EVERY_NIGHTS = 3;
-        const BOSS_BASE_HP = 1440;
+        const BOSS_BASE_HP = 1152;
         const BOSS_HP_GROWTH = 1.5;
+        const BOSS_REWARD = 75;
+
+        // Incarnation → new ability (abilities stack: incarnation III can do I–III)
+        const BOSS_ABILITIES = [
+            { id: 'swarm',  intro: 'summons swarms' },       // I   (night 3)  — Tactical
+            { id: 'spit',   intro: 'spits blood' },          // II  (night 6)  — Floodlight
+            { id: 'blink',  intro: 'teleports' },            // III (night 9)  — Helios
+            { id: 'mirror', intro: 'laser only' }            // IV  (night 12) — Supernova
+        ];
 
         // Spawn weight of every unlocked counter enemy (base: bat 25, vampire 55/35, brute 20)
         const COUNTER_ENEMY_WEIGHT = 15;
@@ -1264,24 +1315,7 @@
                 const dist = Math.hypot(dx, dy);
 
                 if (this.type === 'lord') {
-                    const enraged = this.hp < this.maxHp / 2;
-                    this.summonTimer -= dt;
-                    if (this.summonTimer <= 0) {
-                        this.summonTimer = enraged ? this.enragedSummonInterval : this.summonInterval;
-                        for (let i = 0; i < this.summonCount; i++) {
-                            const a = Math.random() * Math.PI * 2;
-                            const bx = Math.max(20, Math.min(canvas.width - 20, this.x + Math.cos(a) * (this.radius + 25)));
-                            const by = Math.max(20, Math.min(canvas.height - 20, this.y + Math.sin(a) * (this.radius + 25)));
-                            enemies.push(new Vampire(bx, by, 'bat'));
-                            spawnFlashes.push({ x: bx, y: by, color: ENEMY_TYPES.bat.eyeColor, age: 0 });
-                        }
-                        audio.playSpawn();
-                    }
-                    if (dist > 0) {
-                        const speed = enraged ? this.enragedSpeed : this.speed;
-                        this.x += (dx / dist) * speed * dt;
-                        this.y += (dy / dist) * speed * dt;
-                    }
+                    this.updateLord(dt, dx, dy, dist);
                 } else if (this.type === 'spitter') {
                     // Hold position around keepDistance and shoot
                     let dir = 0;
@@ -1318,10 +1352,10 @@
                     this.y += (dy / dist) * speed * dt;
                 }
 
-                if (this.blinkTimer > 0) this.blinkTimer -= dt;
+                if (this.blinkTimer > 0 && this.type !== 'lord') this.blinkTimer -= dt;
                 if (this.revealTimer > 0) this.revealTimer -= dt;
 
-                if (dist < this.radius + player.radius) {
+                if (dist < this.radius + player.radius && !(this.dazedTimer > 0)) {
                     player.hp -= this.damage * dt;
                     this.revealTimer = ENEMY_REVEAL_DURATION;
                     audio.playHit();
@@ -1329,6 +1363,107 @@
                         endGame();
                     }
                 }
+            }
+
+            // ---------- Vampire Lord ----------
+            updateLord(dt, dx, dy, dist) {
+                const enraged = this.hp < this.maxHp / 2;
+                const cd = enraged ? this.enragedCooldown : 1;
+                if (this.blinkTimer > 0) this.blinkTimer -= dt;
+
+                // Dazed after a teleport: stands still, does not attack
+                if (this.dazedTimer > 0) {
+                    this.dazedTimer -= dt;
+                    return;
+                }
+
+                // Casting a summon: stands still, spawn points are already marked
+                if (this.castTimer > 0) {
+                    this.castTimer -= dt;
+                    if (this.castTimer <= 0) {
+                        this.summonPoints.forEach(p => {
+                            enemies.push(new Vampire(p.x, p.y, 'swarm'));
+                            spawnFlashes.push({ x: p.x, y: p.y, color: ENEMY_TYPES.swarm.eyeColor, age: 0 });
+                        });
+                        this.summonPoints = null;
+                        audio.playSpawn();
+                    }
+                    return;
+                }
+
+                // Spit wind-up: stands still, glows, then fires a fan of bolts
+                if (this.windupTimer > 0) {
+                    this.windupTimer -= dt;
+                    if (this.windupTimer <= 0) {
+                        const base = Math.atan2(player.y - this.y, player.x - this.x);
+                        const half = (this.spitBolts - 1) / 2;
+                        for (let i = 0; i < this.spitBolts; i++) {
+                            const a = base + (i - half) * this.spitSpread;
+                            bolts.push({
+                                owner: this, big: true,
+                                x: this.x + Math.cos(a) * this.radius, y: this.y + Math.sin(a) * this.radius,
+                                vx: Math.cos(a) * this.spitBoltSpeed, vy: Math.sin(a) * this.spitBoltSpeed,
+                                damage: this.spitBoltDamage
+                            });
+                        }
+                        audio.playSpit();
+                    }
+                    return;
+                }
+
+                if (this.abilities.includes('swarm')) {
+                    this.summonTimer -= dt;
+                    if (this.summonTimer <= 0) {
+                        this.summonTimer = this.summonInterval * cd;
+                        this.castTimer = this.summonCastTime;
+                        const pack = ENEMY_TYPES.swarm.packSize;
+                        const start = Math.random() * Math.PI * 2;
+                        this.summonPoints = [];
+                        for (let i = 0; i < pack; i++) {
+                            const a = start + (i / pack) * Math.PI * 2;
+                            this.summonPoints.push({
+                                x: Math.max(SPAWN_EDGE_MARGIN, Math.min(canvas.width - SPAWN_EDGE_MARGIN, player.x + Math.cos(a) * this.summonDistance)),
+                                y: Math.max(SPAWN_EDGE_MARGIN, Math.min(canvas.height - SPAWN_EDGE_MARGIN, player.y + Math.sin(a) * this.summonDistance))
+                            });
+                        }
+                        audio.playSummonCast();
+                        return;
+                    }
+                }
+
+                if (this.abilities.includes('spit')) {
+                    this.spitTimer -= dt;
+                    if (this.spitTimer <= 0) {
+                        this.spitTimer = this.spitInterval * cd;
+                        this.windupTimer = this.spitWindup;
+                        return;
+                    }
+                }
+
+                if (dist > 0) {
+                    const speed = enraged ? this.enragedSpeed : this.speed;
+                    this.x += (dx / dist) * speed * dt;
+                    this.y += (dy / dist) * speed * dt;
+                }
+            }
+
+            // Teleport behind the player and stay dazed (harmless) for a moment
+            lordBlink() {
+                audio.playBlink();
+                spawnFlashes.push({ x: this.x, y: this.y, color: '#fbbf24', age: 0 });
+                const angle = player.angle + Math.PI + (Math.random() - 0.5) * Math.PI / 2;
+                const [minD, maxD] = this.blinkDistance;
+                const d = minD + Math.random() * (maxD - minD);
+                this.x = Math.max(this.radius, Math.min(canvas.width - this.radius, player.x + Math.cos(angle) * d));
+                this.y = Math.max(this.radius, Math.min(canvas.height - this.radius, player.y + Math.sin(angle) * d));
+                spawnFlashes.push({ x: this.x, y: this.y, color: '#fbbf24', age: 0 });
+                this.blinkTimer = this.blinkCooldown;
+                this.dazedTimer = this.dazedTime;
+                this.castTimer = 0;
+                this.windupTimer = 0;
+                this.summonPoints = null;
+                this.litTime = 0;
+                this.isBurning = false;
             }
 
             // Phantom: jump to a random spot behind the player
@@ -1347,6 +1482,24 @@
             }
 
             burn(dt, powerMultiplier) {
+                if (this.type === 'lord') {
+                    if (this.abilities.includes('blink') && this.blinkTimer <= 0 && !(this.dazedTimer > 0)) {
+                        this.litTime += dt;
+                        if (this.litTime >= this.blinkLitTime) {
+                            this.lordBlink();
+                            return;
+                        }
+                    }
+                    if (this.abilities.includes('mirror') && !player.isFocused) {
+                        this.isBurning = false;
+                        player.battery = Math.max(0, player.battery - this.reflectBatteryDrain * dt);
+                        audio.playReflect();
+                        if (Math.random() < 0.6) {
+                            particles.push(new Particle(this.x, this.y, '#f8fafc', 5, 2, 0.35));
+                        }
+                        return;
+                    }
+                }
                 if (this.type === 'phantom' && this.blinkTimer <= 0) {
                     this.blink();
                     return;
@@ -1385,7 +1538,9 @@
                 this.markedForDeletion = true;
                 audio.playVampireDeath(this.type);
                 score += this.scoreValue;
-                money += this.bountyMoney;
+                const cash = this.type === 'lord' ? this.bountyMoney : scaledCash(this.bountyMoney);
+                this.earned = cash;
+                money += cash;
                 kills++;
                 document.getElementById('scoreDisplay').innerText = score;
                 player.updateHUD();
@@ -1409,7 +1564,7 @@
                         particles.push(new Particle(this.x, this.y, Math.random() < 0.5 ? '#fbbf24' : '#dc2626', 7, Math.random() * 4 + 2, 1.4));
                     }
                     spawnFlashes.push({ x: this.x, y: this.y, color: '#fbbf24', age: 0 });
-                    showToast(`Vampire Lord defeated! +$${this.bountyMoney}`);
+                    showToast(`Vampire Lord defeated! +$${this.earned}`);
                 } else if (Math.random() < BOOSTER_DROP_CHANCE) {
                     const type = pickWeighted(BOOSTER_TYPES).type;
                     const rarity = pickWeighted(BOOSTER_RARITIES);
@@ -1596,8 +1751,9 @@
                     player.hp = Math.min(player.maxHp, player.hp + amount);
                     showPickupNotice(`+${amount} HP`, 'text-red-400', this.rarity);
                 } else if (this.type === 'money') {
-                    money += amount;
-                    showPickupNotice(`+$${amount} Cash`, 'text-emerald-400', this.rarity);
+                    const cash = scaledCash(amount);
+                    money += cash;
+                    showPickupNotice(`+$${cash} Cash`, 'text-emerald-400', this.rarity);
                 }
                 player.updateHUD();
             }
@@ -1934,7 +2090,7 @@
             bolts.forEach(b => {
                 b.x += b.vx * dt;
                 b.y += b.vy * dt;
-                if (Math.hypot(b.x - player.x, b.y - player.y) < player.radius + 5) {
+                if (Math.hypot(b.x - player.x, b.y - player.y) < player.radius + (b.big ? 8 : 5)) {
                     b.dead = true;
                     player.hp -= b.damage;
                     b.owner.revealTimer = ENEMY_REVEAL_DURATION;
@@ -1955,7 +2111,7 @@
                 ctx.shadowColor = '#dc2626';
                 ctx.shadowBlur = 14;
                 ctx.beginPath();
-                ctx.arc(b.x, b.y, 5, 0, Math.PI * 2);
+                ctx.arc(b.x, b.y, b.big ? 8 : 5, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.restore();
             });
@@ -1971,15 +2127,23 @@
             const { x, y } = randomSpawnPoint();
             const lord = new Vampire(x, y, 'lord');
             lord.incarnation = incarnation;
+            lord.abilities = BOSS_ABILITIES.slice(0, incarnation).map(a => a.id);
             lord.maxHp = lord.hp = Math.round(BOSS_BASE_HP * Math.pow(BOSS_HP_GROWTH, incarnation - 1));
             lord.scoreValue *= incarnation;
-            lord.bountyMoney *= incarnation;
-            lord.summonTimer = lord.summonInterval;
+            lord.bountyMoney = BOSS_REWARD * Math.pow(2, incarnation - 1);
+            lord.summonTimer = 3;   // first summon soon after it appears
+            lord.spitTimer = 2;
+            lord.castTimer = 0;
+            lord.windupTimer = 0;
+            lord.litTime = 0;
+            lord.blinkTimer = 0;
+            lord.dazedTimer = 0;
             enemies.push(lord);
             for (let i = 0; i < 3; i++) {
                 spawnFlashes.push({ x, y, color: i === 1 ? '#fbbf24' : '#dc2626', age: -i * 0.15 });
             }
-            showToast(`The Vampire Lord rises · ${toRoman(incarnation)}`);
+            const newAbility = BOSS_ABILITIES[Math.min(incarnation, BOSS_ABILITIES.length) - 1];
+            showToast(`Vampire Lord ${toRoman(incarnation)} · ${newAbility.intro}`);
             audio.playLordRoar();
         }
 
@@ -2171,9 +2335,11 @@
                 }
             });
 
-            // The Vampire Lord's eyes always burn through the dark
+            // The Vampire Lord's eyes always burn through the dark; his casts are shown too
             enemies.forEach(enemy => {
-                if (enemy.type === 'lord' && !(enemy.revealTimer > 0)) enemy.drawGlowingEyes(ctx, 1);
+                if (enemy.type !== 'lord') return;
+                if (!(enemy.revealTimer > 0)) enemy.drawGlowingEyes(ctx, 1);
+                drawLordTells(enemy);
             });
 
             // Pitch darkness: eyes of nearby vampires glow through the dark
@@ -2208,6 +2374,61 @@
 
             // Render Flashlight Crosshair Reticle
             drawCrosshair();
+        }
+
+        // Telegraphs of the Vampire Lord, drawn above the darkness so they always read:
+        // summon cast (rune ring + marked spawn points), spit wind-up, dazed stars
+        function drawLordTells(lord) {
+            const t = performance.now() / 1000;
+            ctx.save();
+            if (lord.castTimer > 0) {
+                const k = 1 - lord.castTimer / lord.summonCastTime; // 0 → 1
+                const color = ENEMY_TYPES.swarm.eyeColor;
+                ctx.strokeStyle = color;
+                ctx.shadowColor = color;
+                ctx.shadowBlur = 16;
+                ctx.lineWidth = 3;
+                ctx.globalAlpha = 0.5 + 0.5 * Math.sin(t * 20);
+                ctx.beginPath();
+                ctx.arc(lord.x, lord.y, lord.radius + 8 + 14 * k, 0, Math.PI * 2);
+                ctx.stroke();
+                (lord.summonPoints || []).forEach(p => {
+                    ctx.globalAlpha = 0.35 + 0.65 * k;
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([4, 4]);
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 14 - 8 * k, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    ctx.globalAlpha = 0.15 + 0.3 * k;
+                    ctx.beginPath();
+                    ctx.moveTo(lord.x, lord.y);
+                    ctx.lineTo(p.x, p.y);
+                    ctx.stroke();
+                });
+            }
+            if (lord.windupTimer > 0) {
+                const k = 1 - lord.windupTimer / lord.spitWindup;
+                const glow = ctx.createRadialGradient(lord.x, lord.y, lord.radius * 0.5, lord.x, lord.y, lord.radius + 26);
+                glow.addColorStop(0, `rgba(251, 146, 60, ${0.15 + 0.5 * k})`);
+                glow.addColorStop(1, 'rgba(251, 146, 60, 0)');
+                ctx.fillStyle = glow;
+                ctx.beginPath();
+                ctx.arc(lord.x, lord.y, lord.radius + 26, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            if (lord.dazedTimer > 0) {
+                ctx.fillStyle = '#fde68a';
+                ctx.shadowColor = '#fbbf24';
+                ctx.shadowBlur = 8;
+                for (let i = 0; i < 4; i++) {
+                    const a = t * 4 + i * Math.PI / 2;
+                    ctx.beginPath();
+                    ctx.arc(lord.x + Math.cos(a) * (lord.radius + 6), lord.y - lord.radius * 0.2 + Math.sin(a) * 8, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            ctx.restore();
         }
 
         // Pulsing red vignette around the arena edges when health is low;
