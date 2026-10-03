@@ -159,6 +159,9 @@
             <div class="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Active Flashlight</div>
             <div id="equippedName" class="text-sm font-black text-amber-300 uppercase tracking-wide glow-amber">Standard UV Wand</div>
         </div>
+
+        <!-- Booster pickups: newest on top, each fades out after a moment -->
+        <div id="pickupFeed" class="flex flex-col gap-1.5 h-36 overflow-hidden"></div>
     </aside>
 
     <div id="arena">
@@ -294,9 +297,9 @@
         // ---------------------------------------------------------------
         const AUDIO_SETTINGS = {
             masterVolume: 0.8,
-            musicVolume: 0.42,
+            musicVolume: 0.525,
             sfxVolume: 0.6,
-            musicDuckedVolume: 0.16, // music volume while paused / in the shop
+            musicDuckedVolume: 0.2,  // music volume while paused / in the shop
             baseTempo: 72,           // music BPM on night 1
             tempoPerWave: 2,         // +BPM per night
             maxTempo: 100
@@ -540,15 +543,16 @@
                 if (!this.ready) return;
                 const notes = [76, 79, 83, 88, 91];
                 const count = 2 + rarityIndex;
+                const loudness = rarityIndex === 3 ? 0.6 : 1; // epic chime is long, keep it softer
                 for (let i = 0; i < count; i++) {
                     this.tone({
                         type: rarityIndex >= 2 ? 'triangle' : 'sine',
                         freq: midiToFreq(notes[i]), start: i * 0.055,
-                        duration: 0.25 + rarityIndex * 0.1, volume: 0.16 + rarityIndex * 0.03
+                        duration: 0.25 + rarityIndex * 0.1, volume: (0.16 + rarityIndex * 0.03) * loudness
                     });
                 }
                 if (rarityIndex === 3) {
-                    this.noiseBurst({ start: 0.1, duration: 0.6, volume: 0.08, filterType: 'highpass', freq: 6000 });
+                    this.noiseBurst({ start: 0.1, duration: 0.6, volume: 0.08 * loudness, filterType: 'highpass', freq: 6000 });
                 }
             }
 
@@ -1487,16 +1491,15 @@
                 audio.playPickup(BOOSTER_RARITIES.indexOf(this.rarity));
 
                 const amount = this.rarity.amount;
-                const label = this.rarity.name;
                 if (this.type === 'battery') {
                     player.battery = Math.min(player.batteryMax, player.battery + amount);
-                    showToast(`${label}: +${amount}% Battery Charge`);
+                    showPickupNotice(`+${amount}% Battery`, 'text-amber-300', this.rarity);
                 } else if (this.type === 'health') {
                     player.hp = Math.min(player.maxHp, player.hp + amount);
-                    showToast(`${label}: +${amount} HP Restored`);
+                    showPickupNotice(`+${amount} HP`, 'text-red-400', this.rarity);
                 } else if (this.type === 'money') {
                     money += amount;
-                    showToast(`${label}: +$${amount} Bounty Cash`);
+                    showPickupNotice(`+$${amount} Cash`, 'text-emerald-400', this.rarity);
                 }
                 player.updateHUD();
             }
@@ -1571,6 +1574,26 @@
         let bolts = []; // Blood Spitter projectiles
         let seenEnemyTypes = new Set(); // counter enemies already announced this run
         let emergencyBatteryTimer = 0;
+
+        // Booster pickup line in the left column; rarer boosters get a stronger
+        // border so they still stand out without naming the rarity
+        const PICKUP_FEED_MAX = 4;
+        const PICKUP_NOTICE_DURATION = 2200; // ms
+
+        function showPickupNotice(text, colorClass, rarity) {
+            const feed = document.getElementById('pickupFeed');
+            const rarityIndex = BOOSTER_RARITIES.indexOf(rarity);
+            const border = ['border-gray-700', 'border-gray-500', 'border-amber-500/60', 'border-amber-300'][rarityIndex] || 'border-gray-700';
+            const item = document.createElement('div');
+            item.className = `glass-panel px-4 py-1.5 rounded-lg border ${border} text-sm font-bold ${colorClass} transition-opacity duration-500`;
+            item.innerText = text;
+            feed.prepend(item);
+            while (feed.children.length > PICKUP_FEED_MAX) feed.lastChild.remove();
+            setTimeout(() => {
+                item.style.opacity = '0';
+                setTimeout(() => item.remove(), 500);
+            }, PICKUP_NOTICE_DURATION);
+        }
 
         function showToast(msg) {
             const toast = document.getElementById('toastMessage');
@@ -2289,6 +2312,7 @@
             particles = [];
             pickups = [];
             spawnFlashes = [];
+            document.getElementById('pickupFeed').innerHTML = '';
             bolts = [];
             seenEnemyTypes = new Set();
             emergencyBatteryTimer = 0;
