@@ -610,6 +610,18 @@
                 this.tone({ type: 'sine', freq: 3300, duration: 0.18, volume: 0.03 });
             }
 
+            // Vampire Lord charge: a short growl while aiming, then a whoosh
+            playChargeWindup() {
+                if (!this.ready) return;
+                this.tone({ type: 'sawtooth', freq: 90, freqEnd: 170, duration: 0.8, volume: 0.08, attack: 0.2, filter: { freq: 900 } });
+            }
+
+            playCharge() {
+                if (!this.ready) return;
+                this.noiseBurst({ duration: 0.5, volume: 0.12, freq: 400, freqEnd: 1800, q: 1.5, attack: 0.02 });
+                this.tone({ type: 'sine', freq: 120, freqEnd: 60, duration: 0.4, volume: 0.15 });
+            }
+
             // Vampire Lord starts a summon: a rising, shimmering chord
             playSummonCast() {
                 if (!this.ready) return;
@@ -975,23 +987,29 @@
                 scoreValue: 2000, bountyMoney: 75,
                 enragedSpeed: 58,       // below half HP: faster, abilities recharge faster
                 enragedCooldown: 0.75,  // ability cooldowns × this when enraged
-                // I: swarm — a telegraphed summon of a Shade Swarm pack around the player
+                // I: charge — stops, shows a red lane towards the player, then dashes along it
+                chargeInterval: 5,
+                chargeWindup: 0.8,
+                chargeSpeed: 430,       // px per second
+                chargeTime: 0.7,        // max dash duration
+                chargeDamage: 18,       // one hit per dash
+                // II: swarm — a telegraphed summon of a Shade Swarm pack around the player
                 summonInterval: 8,
                 summonCastTime: 1.2,    // seconds of visible casting before they appear
                 summonDistance: 170,    // px from the player
-                // II: spit — a fan of 3 blood bolts after a short wind-up
+                // III: spit — a fan of 3 blood bolts after a short wind-up
                 spitInterval: 4,
                 spitWindup: 0.5,
                 spitBolts: 3,
                 spitSpread: 0.28,       // radians between bolts
                 spitBoltSpeed: 260,
                 spitBoltDamage: 12,
-                // III: blink — when held in the light it teleports behind the player
+                // IV: blink — when held in the light it teleports behind the player
                 blinkLitTime: 1.0,      // seconds in the light before it teleports
                 blinkCooldown: 6,
                 blinkDistance: [160, 220],
                 dazedTime: 1.6,         // after a teleport it does not attack for this long
-                // IV: mirror — the wide beam is reflected, only the focused laser burns it
+                // V: mirror — the wide beam is reflected, only the focused laser burns it
                 reflectBatteryDrain: 8
             },
             // Counters spinning with the Supernova: the wide beam does not hurt it
@@ -1006,11 +1024,12 @@
 
         // Income: every vampire's bountyMoney and every money booster are multiplied
         // by INCOME_SCALE × INCOME_GROWTH^(night − 1); the boss pays BOSS_REWARDS.
-        // Tuned so that Tactical is affordable after night 2 and every next
-        // flashlight right after a boss fight: Floodlight after night 3,
-        // Helios after 6, Supernova after 9 — never two at once, never earlier.
-        const INCOME_SCALE = 0.21;
-        const INCOME_GROWTH = 1.23;
+        // Tuned so that every flashlight becomes affordable right after a boss
+        // fight: Tactical after night 3, Floodlight after 6, Helios after 9,
+        // Supernova after 12 — never earlier (even with every money booster
+        // collected), always after (even without them), never two at once.
+        const INCOME_SCALE = 0.14;
+        const INCOME_GROWTH = 1.05;
 
         function incomeMultiplier() {
             return INCOME_SCALE * Math.pow(INCOME_GROWTH, wave - 1);
@@ -1028,7 +1047,7 @@
         const BOSS_EVERY_NIGHTS = 3;
         const BOSS_BASE_HP = 1152;
         const BOSS_HP_GROWTH = 1.5;
-        const BOSS_REWARDS = [800, 1100, 1900, 3800];
+        const BOSS_REWARDS = [75, 525, 1350, 3100, 6200];
 
         function bossReward(incarnation) {
             const last = BOSS_REWARDS.length;
@@ -1041,12 +1060,14 @@
             return night % BOSS_EVERY_NIGHTS === 0;
         }
 
-        // Incarnation → new ability (abilities stack: incarnation III can do I–III)
+        // Incarnation → new ability (abilities stack: incarnation III can do I–III).
+        // From II on, each one counters the flashlight bought after the previous boss.
         const BOSS_ABILITIES = [
-            { id: 'swarm',  intro: 'summons swarms' },       // I   (night 3)  — Tactical
-            { id: 'spit',   intro: 'spits blood' },          // II  (night 6)  — Floodlight
-            { id: 'blink',  intro: 'teleports' },            // III (night 9)  — Helios
-            { id: 'mirror', intro: 'laser only' }            // IV  (night 12) — Supernova
+            { id: 'charge', intro: 'charges' },        // I   (night 3)  — base attack
+            { id: 'swarm',  intro: 'summons swarms' }, // II  (night 6)  — vs Tactical
+            { id: 'spit',   intro: 'spits blood' },    // III (night 9)  — vs Floodlight
+            { id: 'blink',  intro: 'teleports' },      // IV  (night 12) — vs Helios
+            { id: 'mirror', intro: 'laser only' }      // V   (night 15) — vs Supernova
         ];
 
         // Spawn weight of every unlocked counter enemy (base: bat 25, vampire 55/35, brute 20)
@@ -1404,6 +1425,40 @@
                     return;
                 }
 
+                // Charge wind-up: stands still while the lane is shown, then dashes
+                if (this.chargeWindupTimer > 0) {
+                    this.chargeWindupTimer -= dt;
+                    if (this.chargeWindupTimer <= 0) {
+                        this.dashTimer = this.chargeTime;
+                        this.dashHit = false;
+                        audio.playCharge();
+                    }
+                    return;
+                }
+
+                // Dashing along the lane; one heavy hit if it reaches the player
+                if (this.dashTimer > 0) {
+                    this.dashTimer -= dt;
+                    this.x += Math.cos(this.chargeAngle) * this.chargeSpeed * dt;
+                    this.y += Math.sin(this.chargeAngle) * this.chargeSpeed * dt;
+                    const hitWall = this.x < this.radius || this.y < this.radius ||
+                        this.x > canvas.width - this.radius || this.y > canvas.height - this.radius;
+                    this.x = Math.max(this.radius, Math.min(canvas.width - this.radius, this.x));
+                    this.y = Math.max(this.radius, Math.min(canvas.height - this.radius, this.y));
+                    if (hitWall) this.dashTimer = 0;
+                    if (Math.random() < 0.7) {
+                        particles.push(new Particle(this.x, this.y, '#7f1d1d', 1, Math.random() * 4 + 2, 0.5));
+                    }
+                    if (!this.dashHit && Math.hypot(player.x - this.x, player.y - this.y) < this.radius + player.radius) {
+                        this.dashHit = true;
+                        player.hp -= this.chargeDamage;
+                        this.revealTimer = ENEMY_REVEAL_DURATION;
+                        audio.playHit();
+                        if (player.hp <= 0) endGame();
+                    }
+                    return;
+                }
+
                 // Spit wind-up: stands still, glows, then fires a fan of bolts
                 if (this.windupTimer > 0) {
                     this.windupTimer -= dt;
@@ -1422,6 +1477,17 @@
                         audio.playSpit();
                     }
                     return;
+                }
+
+                if (this.abilities.includes('charge')) {
+                    this.chargeTimer -= dt;
+                    if (this.chargeTimer <= 0) {
+                        this.chargeTimer = this.chargeInterval * cd;
+                        this.chargeWindupTimer = this.chargeWindup;
+                        this.chargeAngle = Math.atan2(player.y - this.y, player.x - this.x);
+                        audio.playChargeWindup();
+                        return;
+                    }
                 }
 
                 if (this.abilities.includes('swarm')) {
@@ -1474,6 +1540,8 @@
                 this.dazedTimer = this.dazedTime;
                 this.castTimer = 0;
                 this.windupTimer = 0;
+                this.chargeWindupTimer = 0;
+                this.dashTimer = 0;
                 this.summonPoints = null;
                 this.litTime = 0;
                 this.isBurning = false;
@@ -2145,7 +2213,10 @@
             lord.maxHp = lord.hp = Math.round(BOSS_BASE_HP * Math.pow(BOSS_HP_GROWTH, incarnation - 1));
             lord.scoreValue *= incarnation;
             lord.bountyMoney = bossReward(incarnation);
-            lord.summonTimer = 3;   // first summon soon after it appears
+            lord.chargeTimer = 2;   // first charge soon after it appears
+            lord.chargeWindupTimer = 0;
+            lord.dashTimer = 0;
+            lord.summonTimer = 3;
             lord.spitTimer = 2;
             lord.castTimer = 0;
             lord.windupTimer = 0;
@@ -2420,6 +2491,27 @@
                     ctx.lineTo(p.x, p.y);
                     ctx.stroke();
                 });
+            }
+            if (lord.chargeWindupTimer > 0) {
+                const k = 1 - lord.chargeWindupTimer / lord.chargeWindup;
+                const len = lord.chargeSpeed * lord.chargeTime;
+                ctx.save();
+                ctx.translate(lord.x, lord.y);
+                ctx.rotate(lord.chargeAngle);
+                const lane = ctx.createLinearGradient(0, 0, len, 0);
+                lane.addColorStop(0, `rgba(220, 38, 38, ${0.15 + 0.35 * k})`);
+                lane.addColorStop(1, 'rgba(220, 38, 38, 0)');
+                ctx.fillStyle = lane;
+                ctx.fillRect(0, -lord.radius, len, lord.radius * 2);
+                ctx.strokeStyle = `rgba(248, 113, 113, ${0.4 + 0.5 * k})`;
+                ctx.lineWidth = 2;
+                ctx.setLineDash([10, 8]);
+                ctx.beginPath();
+                ctx.moveTo(lord.radius, 0);
+                ctx.lineTo(len * (0.3 + 0.7 * k), 0);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.restore();
             }
             if (lord.windupTimer > 0) {
                 const k = 1 - lord.windupTimer / lord.spitWindup;
