@@ -286,7 +286,7 @@
     <!-- Right column: fullscreen and controls -->
     <aside class="side-panel flex flex-col gap-3">
         <button id="fullscreenBtn" class="glass-panel w-full py-3 rounded-xl text-sm font-bold uppercase tracking-wider text-amber-300 hover:text-amber-200 hover:border-amber-500/60 transition cursor-pointer shadow-lg">
-            ⛶ Fullscreen
+            ⛶ Fullscreen <span class="text-[10px] text-gray-400 normal-case">(Shift+F)</span>
         </button>
 
         <div class="grid grid-cols-2 gap-3">
@@ -302,6 +302,7 @@
             <div class="flex justify-between gap-2"><strong class="text-emerald-400">B</strong><span>Shop</span></div>
             <div class="flex justify-between gap-2"><strong class="text-amber-300">P / ESC</strong><span>Pause</span></div>
             <div class="flex justify-between gap-2"><strong class="text-gray-300">M / N</strong><span>Music / sound</span></div>
+            <div class="flex justify-between gap-2"><strong class="text-gray-300">Shift+F</strong><span>Fullscreen</span></div>
         </div>
     </aside>
 
@@ -1060,14 +1061,19 @@
             return night % BOSS_EVERY_NIGHTS === 0;
         }
 
-        // Incarnation → new ability (abilities stack: incarnation III can do I–III).
-        // From II on, each one counters the flashlight bought after the previous boss.
+        // Boss abilities. Incarnation N knows the first N + 1 of them, so each boss
+        // previews the trick of the flashlight the player can buy right after it
+        // (and of the counter enemy that flashlight will lure):
+        //   I  (night 3):  charge + swarm   → then Tactical   (lures Shade Swarm)
+        //   II (night 6):  + spit           → then Floodlight (lures Blood Spitter)
+        //   III (night 9): + teleport       → then Helios     (lures Phantom)
+        //   IV (night 12): + mirror         → then Supernova  (lures Mirror Wraith)
         const BOSS_ABILITIES = [
-            { id: 'charge', intro: 'charges' },        // I   (night 3)  — base attack
-            { id: 'swarm',  intro: 'summons swarms' }, // II  (night 6)  — vs Tactical
-            { id: 'spit',   intro: 'spits blood' },    // III (night 9)  — vs Floodlight
-            { id: 'blink',  intro: 'teleports' },      // IV  (night 12) — vs Helios
-            { id: 'mirror', intro: 'laser only' }      // V   (night 15) — vs Supernova
+            { id: 'charge', intro: 'charges' },
+            { id: 'swarm',  intro: 'summons swarms' },
+            { id: 'spit',   intro: 'spits blood' },
+            { id: 'blink',  intro: 'teleports' },
+            { id: 'mirror', intro: 'laser only' }
         ];
 
         // Spawn weight of every unlocked counter enemy (base: bat 25, vampire 55/35, brute 20)
@@ -1191,7 +1197,9 @@
                     resumeGame();
                 }
             }
-            if (e.code === 'KeyF' && gameState === 'PLAYING') {
+            if (e.code === 'KeyF' && e.shiftKey) {
+                toggleFullscreen(); // Shift+F; plain F is the focused laser
+            } else if (e.code === 'KeyF' && gameState === 'PLAYING') {
                 player.toggleFocusedBeam();
             }
             if (e.code === 'KeyB') {
@@ -2209,7 +2217,7 @@
             const { x, y } = randomSpawnPoint();
             const lord = new Vampire(x, y, 'lord');
             lord.incarnation = incarnation;
-            lord.abilities = BOSS_ABILITIES.slice(0, incarnation).map(a => a.id);
+            lord.abilities = BOSS_ABILITIES.slice(0, incarnation + 1).map(a => a.id);
             lord.maxHp = lord.hp = Math.round(BOSS_BASE_HP * Math.pow(BOSS_HP_GROWTH, incarnation - 1));
             lord.scoreValue *= incarnation;
             lord.bountyMoney = bossReward(incarnation);
@@ -2227,8 +2235,11 @@
             for (let i = 0; i < 3; i++) {
                 spawnFlashes.push({ x, y, color: i === 1 ? '#fbbf24' : '#dc2626', age: -i * 0.15 });
             }
-            const newAbility = BOSS_ABILITIES[Math.min(incarnation, BOSS_ABILITIES.length) - 1];
-            showToast(`Vampire Lord ${toRoman(incarnation)} · ${newAbility.intro}`);
+            const intro = incarnation === 1
+                ? `${BOSS_ABILITIES[0].intro} & ${BOSS_ABILITIES[1].intro}`
+                : incarnation < BOSS_ABILITIES.length ? BOSS_ABILITIES[incarnation].intro
+                : 'all tricks';
+            showToast(`Vampire Lord ${toRoman(incarnation)} · ${intro}`);
             audio.playLordRoar();
         }
 
@@ -2918,17 +2929,21 @@
         function isFullscreen() {
             return document.fullscreenElement || document.webkitFullscreenElement;
         }
-        fullscreenBtn.onclick = () => {
+        function toggleFullscreen() {
             const root = document.documentElement;
             if (isFullscreen()) {
                 (document.exitFullscreen || document.webkitExitFullscreen).call(document);
             } else {
                 (root.requestFullscreen || root.webkitRequestFullscreen).call(root);
             }
+        }
+        fullscreenBtn.onclick = () => {
+            toggleFullscreen();
             fullscreenBtn.blur(); // keep Space/Enter from re-triggering it during play
         };
         function updateFullscreenButton() {
-            fullscreenBtn.innerText = isFullscreen() ? '✕ Exit Fullscreen' : '⛶ Fullscreen';
+            fullscreenBtn.innerHTML = (isFullscreen() ? '✕ Exit Fullscreen' : '⛶ Fullscreen') +
+                ' <span class="text-[10px] text-gray-400 normal-case">(Shift+F)</span>';
             resizeCanvas();
         }
         document.addEventListener('fullscreenchange', updateFullscreenButton);
