@@ -85,6 +85,18 @@ body {
     color: white;
 }
 
+/* Play Theme (Amber, matches the Sunlight Beam game) */
+.btn-play {
+    border-color: #f59e0b;
+    background: white;
+    color: #b45309;
+}
+
+.btn-play.active {
+    background: #f59e0b;
+    color: #1f1300;
+}
+
 /* Wishlist Theme (Pink) */
 .btn-wishlist {
     border-color: #e91e63;
