@@ -933,7 +933,7 @@
                 scoreValue: 150, bountyMoney: 25
             },
             tank: {
-                name: 'Brute', radius: 26, speed: 45, hp: 240, damage: 25,
+                name: 'Brute', radius: 26, speed: 45, hp: 192, damage: 25,
                 color: '#1e1b4b', eyeColor: '#ef4444', lightResistance: 0.55,
                 scoreValue: 350, bountyMoney: 65
             },
@@ -1005,11 +1005,12 @@
         };
 
         // Income: every vampire's bountyMoney and every money booster are multiplied
-        // by INCOME_SCALE × INCOME_GROWTH^(night − 1). Tuned so that the next
-        // flashlight becomes affordable right before each boss night:
-        // Tactical after night 2, Floodlight after 5, Helios after 8, Supernova after 11.
-        const INCOME_SCALE = 0.2;
-        const INCOME_GROWTH = 1.16;
+        // by INCOME_SCALE × INCOME_GROWTH^(night − 1); the boss pays BOSS_REWARDS.
+        // Tuned so that Tactical is affordable after night 2 and every next
+        // flashlight right after a boss fight: Floodlight after night 3,
+        // Helios after 6, Supernova after 9 — never two at once, never earlier.
+        const INCOME_SCALE = 0.21;
+        const INCOME_GROWTH = 1.23;
 
         function incomeMultiplier() {
             return INCOME_SCALE * Math.pow(INCOME_GROWTH, wave - 1);
@@ -1019,14 +1020,26 @@
             return Math.max(1, Math.round(amount * incomeMultiplier()));
         }
 
-        // The Vampire Lord comes every BOSS_EVERY_NIGHTS nights (3, 6, 9, ...).
-        // Each new incarnation has BOSS_HP_GROWTH times the HP of the previous one,
-        // pays BOSS_REWARD × 2^(incarnation − 1) and learns the trick of the
-        // flashlight the player could just buy (see BOSS_ABILITIES).
+        // The Vampire Lord comes every BOSS_EVERY_NIGHTS nights (3, 6, 9, ...), alone:
+        // boss nights have no regular vampires. Each new incarnation has
+        // BOSS_HP_GROWTH times the HP of the previous one, pays BOSS_REWARDS
+        // (doubling after the list ends) and learns the trick of the flashlight
+        // the player bought right before it (see BOSS_ABILITIES).
         const BOSS_EVERY_NIGHTS = 3;
         const BOSS_BASE_HP = 1152;
         const BOSS_HP_GROWTH = 1.5;
-        const BOSS_REWARD = 75;
+        const BOSS_REWARDS = [800, 1100, 1900, 3800];
+
+        function bossReward(incarnation) {
+            const last = BOSS_REWARDS.length;
+            return incarnation <= last
+                ? BOSS_REWARDS[incarnation - 1]
+                : BOSS_REWARDS[last - 1] * Math.pow(2, incarnation - last);
+        }
+
+        function isBossNight(night) {
+            return night % BOSS_EVERY_NIGHTS === 0;
+        }
 
         // Incarnation → new ability (abilities stack: incarnation III can do I–III)
         const BOSS_ABILITIES = [
@@ -1992,7 +2005,8 @@
 
         function startWave(waveNum) {
             wave = waveNum;
-            waveEnemiesToSpawn = 8 + wave * 4;
+            // Boss nights are a one-on-one fight with the Vampire Lord
+            waveEnemiesToSpawn = isBossNight(wave) ? 0 : 8 + wave * 4;
             spawnTimer = Infinity; // first vampire appears as soon as the intro ends
             emergencyBatteriesThisNight = 0;
             bossSpawnedThisNight = false;
@@ -2130,7 +2144,7 @@
             lord.abilities = BOSS_ABILITIES.slice(0, incarnation).map(a => a.id);
             lord.maxHp = lord.hp = Math.round(BOSS_BASE_HP * Math.pow(BOSS_HP_GROWTH, incarnation - 1));
             lord.scoreValue *= incarnation;
-            lord.bountyMoney = BOSS_REWARD * Math.pow(2, incarnation - 1);
+            lord.bountyMoney = bossReward(incarnation);
             lord.summonTimer = 3;   // first summon soon after it appears
             lord.spitTimer = 2;
             lord.castTimer = 0;
@@ -2233,7 +2247,7 @@
                 wavePhaseTimer -= dt;
                 if (wavePhaseTimer <= 0) {
                     wavePhase = 'fight';
-                    if (wave % BOSS_EVERY_NIGHTS === 0 && !bossSpawnedThisNight) spawnLord();
+                    if (isBossNight(wave) && !bossSpawnedThisNight) spawnLord();
                 }
             } else if (wavePhase === 'victory') {
                 wavePhaseTimer -= dt;
@@ -2564,7 +2578,9 @@
         function playWaveBanner() {
             const banner = document.getElementById('waveBanner');
             document.getElementById('waveBannerSub').innerText =
-                wave === 1 ? 'The hunt begins' : `Night ${wave - 1} survived`;
+                wave === 1 ? 'The hunt begins'
+                : isBossNight(wave) ? 'The Vampire Lord awaits'
+                : `Night ${wave - 1} survived`;
             const title = document.getElementById('waveBannerTitle');
             title.innerText = `Night ${wave}`;
             title.classList.remove('text-emerald-300', 'glow-emerald');
