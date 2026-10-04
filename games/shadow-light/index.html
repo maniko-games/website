@@ -3251,7 +3251,7 @@
         // Floating twin sticks: a touch on the left half of the screen becomes the
         // move stick, on the right half the aim stick. Buttons and menus get normal taps.
         const STICK_RADIUS = 50;          // px of thumb travel for full speed
-        const AIM_DEADZONE = 18;          // px: smaller thumb moves do not turn the beam
+        const AIM_DEADZONE = 14.4;        // px: smaller thumb moves do not turn the beam
         const TOUCH_AIM_TURN_RATE = 14;   // how fast the beam follows the stick (higher = snappier)
         const touch = {
             move: { id: null, ox: 0, oy: 0, x: 0, y: 0, el: document.getElementById('moveStick'), ghost: document.getElementById('moveGhost') },
