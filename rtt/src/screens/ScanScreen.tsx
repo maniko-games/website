@@ -1,27 +1,30 @@
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef } from 'react';
 import { Linking, Pressable, StyleSheet, Text, Vibration, View } from 'react-native';
 
 import { strings } from '../i18n';
 import { isValidEan13 } from '../lib/barcode';
 
-const BARCODE_TYPES = ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'qr'] as const;
+const BARCODE_TYPES = ['ean13', 'ean8', 'upc_a', 'upc_e'] as const;
 
-type Scan = { data: string; type: string };
+type Props = { onCode: (code: string) => void };
 
-export function ScanScreen() {
+export function ScanScreen({ onCode }: Props) {
   const t = strings.scan;
   const [permission, requestPermission] = useCameraPermissions();
-  const [scan, setScan] = useState<Scan | null>(null);
+  const handled = useRef(false);
 
-  const onScanned = useCallback((result: BarcodeScanningResult) => {
-    // Keep only the first hit; the camera keeps firing until we unmount the listener.
-    setScan((current) => {
-      if (current) return current;
+  const onScanned = useCallback(
+    (result: BarcodeScanningResult) => {
+      if (handled.current) return;
+      // A misread EAN-13 fails its check digit; keep scanning instead of reporting it.
+      if (result.type === 'ean13' && !isValidEan13(result.data)) return;
+      handled.current = true;
       Vibration.vibrate(50);
-      return { data: result.data, type: result.type };
-    });
-  }, []);
+      onCode(result.data);
+    },
+    [onCode],
+  );
 
   if (!permission) return <View style={styles.container} />;
 
@@ -50,33 +53,12 @@ export function ScanScreen() {
         style={StyleSheet.absoluteFill}
         facing="back"
         barcodeScannerSettings={{ barcodeTypes: [...BARCODE_TYPES] }}
-        onBarcodeScanned={scan ? undefined : onScanned}
+        onBarcodeScanned={onScanned}
       />
-      {!scan && (
-        <View style={styles.hintWrap} pointerEvents="none">
-          <View style={styles.frame} />
-          <Text style={styles.hint}>{t.hint}</Text>
-        </View>
-      )}
-      {scan && (
-        <View style={styles.resultCard}>
-          <Text style={styles.label}>{t.resultLabel}</Text>
-          <Text style={styles.code} selectable>
-            {scan.data}
-          </Text>
-          <Text style={styles.meta}>
-            {t.typeLabel}: {scan.type}
-          </Text>
-          {scan.type === 'ean13' && (
-            <Text style={styles.meta}>
-              {isValidEan13(scan.data) ? t.checksumValid : t.checksumInvalid}
-            </Text>
-          )}
-          <Pressable style={styles.button} onPress={() => setScan(null)}>
-            <Text style={styles.buttonText}>{t.scanAgain}</Text>
-          </Pressable>
-        </View>
-      )}
+      <View style={styles.hintWrap} pointerEvents="none">
+        <View style={styles.frame} />
+        <Text style={styles.hint}>{t.hint}</Text>
+      </View>
     </View>
   );
 }
@@ -92,7 +74,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     borderRadius: 12,
     alignItems: 'center',
-    marginTop: 12,
   },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   hintWrap: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
@@ -105,16 +86,4 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   hint: { color: '#fff', fontSize: 16 },
-  resultCard: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 48,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-  },
-  label: { fontSize: 14, color: '#666' },
-  code: { fontSize: 32, fontWeight: '700', marginVertical: 6 },
-  meta: { fontSize: 14, color: '#444' },
 });
