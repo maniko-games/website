@@ -2,7 +2,6 @@ import { useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -42,9 +41,13 @@ export function FormScreen({ product, note, notFound, onSave, onCancel }: Props)
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: '#fff' }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior="padding"
     >
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
         {notFound && <Text style={[s.body, styles.notice]}>{t.notFound}</Text>}
         <Text style={styles.label}>{t.name}</Text>
         <TextInput style={styles.input} value={name} onChangeText={setName} />
@@ -72,7 +75,7 @@ export function FormScreen({ product, note, notFound, onSave, onCancel }: Props)
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 24, paddingTop: 64 },
+  content: { padding: 24, paddingTop: 64, paddingBottom: 160 },
   notice: { textAlign: 'left', backgroundColor: '#fef3c7', padding: 12, borderRadius: 8 },
   label: { fontSize: 14, color: '#555', marginTop: 12, marginBottom: 4 },
   input: {
