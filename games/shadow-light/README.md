@@ -218,8 +218,10 @@ Fullscreen API), а событие «играет» ни на что не вли
 ### Версия для портала QS Play (QS Games)
 
 Собирается из этой же игры командой `./qsplay/build.sh` (нужны `sh`, `awk` и `zip`).
-Результат — папка `qsplay/build/` и архив `qsplay/shadow-light-qsplay.zip` для загрузки на
-портал (в git не хранятся, собираются заново перед каждой загрузкой). Сборка:
+Результат — папка `qsplay/build/`, архив игры `qsplay/shadow-light-qsplay.zip` для загрузки на
+портал и общий архив для заявки `qsplay/shadow-light-qsplay-submission.zip` с папками
+`game/` (архив игры), `images/` (`icon/`, `cover/`, `screenshots/`) и `texts/` (`listing.md`).
+В git они не хранятся и собираются заново перед каждой загрузкой. Сборка:
 - вставляет в `<head>` на место комментария `PLATFORM SCRIPTS` SDK портала
   (`https://sdk.quartsoft.com/v1/sdk.js`) и адаптер `qsplay/qsplay-platform.js`;
 - кладёт рядом `tailwind.css`;
