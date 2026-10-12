@@ -1458,8 +1458,9 @@
             fitSidePanels();
             const arena = document.getElementById('arena');
             const scale = IS_TOUCH ? TOUCH_WORLD_SCALE : 1;
-            canvas.width = Math.round(arena.clientWidth * scale);
-            canvas.height = Math.round(arena.clientHeight * scale);
+            // Never 0: drawing from a 0-size canvas throws and would stop the game loop
+            canvas.width = Math.max(1, Math.round(arena.clientWidth * scale));
+            canvas.height = Math.max(1, Math.round(arena.clientHeight * scale));
             // Keep the hero inside after a rotation / resize
             // (the first call runs before `player` exists, hence the try)
             try {
@@ -1554,6 +1555,15 @@
             if (hudCache[id] === text) return;
             hudCache[id] = text;
             document.getElementById(id).innerText = text;
+        }
+
+        // Score and cash share a narrow column: long numbers get a smaller font
+        // so "97200" and "$1848" never run into each other
+        function setStatText(id, text) {
+            if (hudCache[id] === text) return;
+            setHudText(id, text);
+            const el = document.getElementById(id);
+            el.style.fontSize = text.length >= 7 ? '0.8rem' : text.length >= 5 ? '0.95rem' : '';
         }
 
         function setHudWidth(id, percent) {
@@ -1658,7 +1668,7 @@
                 setHudWidth('hpBar', Math.max(0, (this.hp / this.maxHp) * 100));
                 setHudText('batteryValue', `${Math.ceil(this.battery)}%`);
                 setHudWidth('batteryBar', Math.max(0, (this.battery / this.batteryMax) * 100));
-                setHudText('moneyDisplay', `$${money}`);
+                setStatText('moneyDisplay', `$${money}`);
                 setHudText('equippedName', equippedFlashlight.name);
                 if (IS_TOUCH) {
                     setHudWidth('mHpBar', Math.max(0, (this.hp / this.maxHp) * 100));
@@ -2033,7 +2043,7 @@
                 this.earned = cash;
                 money += cash;
                 kills++;
-                document.getElementById('scoreDisplay').innerText = score;
+                setStatText('scoreDisplay', String(score));
                 player.updateHUD();
 
                 for (let i = 0; i < 22; i++) {
@@ -3335,7 +3345,7 @@
             FLASHLIGHT_CATALOG.forEach((f, i) => f.unlocked = i === 0);
             equippedFlashlight = FLASHLIGHT_CATALOG[0];
 
-            document.getElementById('scoreDisplay').innerText = score;
+            setStatText('scoreDisplay', String(score));
 
             player = new Player(canvas.width / 2, canvas.height / 2);
             player.updateHUD();
