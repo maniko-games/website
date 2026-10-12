@@ -563,6 +563,10 @@
             setFocusMuted(muted) {
                 this.focusMuted = muted;
                 if (!this.ctx) return;
+                // Both: some browsers keep a suspended context audible for a moment
+                const t = this.ctx.currentTime;
+                this.master.gain.cancelScheduledValues(t);
+                this.master.gain.setValueAtTime(muted ? 0 : AUDIO_SETTINGS.masterVolume, t);
                 if (muted) this.ctx.suspend();
                 else if (this.ctx.state === 'suspended') this.ctx.resume();
             }
@@ -606,7 +610,7 @@
                     const data = this.noise.getChannelData(0);
                     for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
                 }
-                this.focusMuted = false; // a key press or a tap means the player is back
+                if (this.focusMuted) this.setFocusMuted(false); // a key press or a tap means the player is back
                 if (this.ctx.state === 'suspended') this.ctx.resume();
                 if (this.musicEnabled && gameState !== 'GAMEOVER' && gameState !== 'DYING') this.startMusic();
             }
