@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Sunlight Beam: Vampire Light Hunter</title>
+    <!-- PLATFORM SCRIPTS: portal builds insert their SDK here (see qsplay/build.sh) -->
     <style>
         body {
             margin: 0;
@@ -505,8 +506,18 @@
             onFullscreenChange(callback) {
                 document.addEventListener('fullscreenchange', callback);
                 document.addEventListener('webkitfullscreenchange', callback);
-            }
+            },
+
+            // Before the first frame: a portal loads saved settings here.
+            init() { return Promise.resolve(); },
+            // The game is ready and its first frame is on screen.
+            loadingDone() {},
+            // Current night, score etc. for the portal's problem reports.
+            setContext(context) {}
         };
+        // A portal build loads its adapter before this script; it replaces
+        // the methods above with the portal SDK.
+        if (window.portalPlatform) Object.assign(platform, window.portalPlatform);
 
         // ---------------------------------------------------------------
         // Audio: every sound and the music are synthesized with the Web
@@ -3268,7 +3279,20 @@
         // Tell the platform whether a night is being fought right now: only
         // the fight itself counts, not banners, the shop, pause or death.
         function syncGameplayState() {
-            platform.setGameplayActive(gameState === 'PLAYING' && wavePhase === 'fight');
+            const active = gameState === 'PLAYING' && wavePhase === 'fight';
+            if (active === platform.gameplayActive) return;
+            platform.setContext({
+                night: wave,
+                score,
+                kills,
+                cash: money,
+                flashlight: equippedFlashlight.name,
+                hp: Math.round(player.hp),
+                battery: Math.round(player.battery),
+                state: gameState === 'PLAYING' ? wavePhase : gameState.toLowerCase(),
+                touch: IS_TOUCH
+            });
+            platform.setGameplayActive(active);
         }
 
         function gameLoop(timestamp) {
@@ -3530,10 +3554,31 @@
             startGame();
         };
 
-        // Start the game immediately and the animation loop
-        startGame();
-        if (document.hidden) onGameLeft(); // opened in a background tab
-        requestAnimationFrame(gameLoop);
+        // Saved music / sound settings may arrive later than the page (a portal
+        // keeps them in its own storage), so read them again once it is ready.
+        function applySavedAudioSettings() {
+            const music = platform.loadSetting('shadowLight.music', true);
+            const sfx = platform.loadSetting('shadowLight.sfx', true);
+            if (music !== audio.musicEnabled) audio.setMusicEnabled(music);
+            if (sfx !== audio.sfxEnabled) audio.setSfxEnabled(sfx);
+            updateAudioButtons();
+        }
+
+        // Start the game immediately and the animation loop. A platform that
+        // takes too long to answer never holds the game back.
+        const PLATFORM_INIT_TIMEOUT = 3000; // ms
+        Promise.race([
+            platform.init().catch(() => {}),
+            new Promise(resolve => setTimeout(resolve, PLATFORM_INIT_TIMEOUT))
+        ]).then(() => {
+            applySavedAudioSettings();
+            startGame();
+            // Opened in a background tab, or embedded in a page that has not
+            // given the game focus yet: wait on the pause screen
+            if (document.hidden || (window.self !== window.top && !document.hasFocus())) onGameLeft();
+            requestAnimationFrame(gameLoop);
+            platform.loadingDone();
+        });
     </script>
 </body>
 </html>
