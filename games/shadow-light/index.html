@@ -1563,7 +1563,7 @@
             if (hudCache[id] === text) return;
             setHudText(id, text);
             const el = document.getElementById(id);
-            el.style.fontSize = text.length >= 7 ? '0.8rem' : text.length >= 5 ? '0.95rem' : '';
+            el.style.fontSize = text.length >= 6 ? '0.8rem' : text.length >= 5 ? '0.95rem' : '';
         }
 
         function setHudWidth(id, percent) {
