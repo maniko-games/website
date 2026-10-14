@@ -61,7 +61,7 @@
     <h2 id="collect">1. Information we collect</h2>
     <p>The App lets you save products you have used, with your own rating, comment, category and photos. We collect:</p>
     <ul>
-        <li><strong>Account information.</strong> You can use the App without registering: in that case we create an anonymous account that has no name or e-mail. If you add an e-mail address, we store it to sign you in and to send you one-time codes.</li>
+        <li><strong>Account information.</strong> You can use the App without registering: in that case we create an anonymous account that has no name or e-mail. If you add an e-mail address, we store it to sign you in and to send you one-time codes. If you choose “Continue with Google”, Google tells us your e-mail address and basic profile (name and picture); we use the e-mail address to identify your account and do not receive your Google password.</li>
         <li><strong>Content you create.</strong> Products (name, brand, category, weight or volume, barcode if any), your ratings and comments, and the photos of product packaging that you take or choose from your gallery.</li>
         <li><strong>Categories you type.</strong> Category names you enter may be stored in a shared category list so they can be suggested to other users. A new category is reviewed by us before other users can see it; until then it is visible only to you.</li>
         <li><strong>Family and list data.</strong> If you create or join a family or a shared shopping list, we store who belongs to it, the invite codes, and the list contents.</li>
@@ -93,6 +93,7 @@
     <table>
         <tr><th>Provider</th><th>Purpose</th><th>Data</th></tr>
         <tr><td>Supabase</td><td>Database, sign-in and photo storage</td><td>Account, products, ratings, comments, photos</td></tr>
+        <tr><td>Google</td><td>Sign-in with a Google account (optional)</td><td>E-mail address and basic profile you allow Google to share</td></tr>
         <tr><td>Resend</td><td>Sending e-mails with sign-in codes</td><td>E-mail address</td></tr>
         <tr><td>AI model provider</td><td>Recognizing a product from packaging photos (optional feature, called only from our server)</td><td>The photos you submit for recognition</td></tr>
     </table>
