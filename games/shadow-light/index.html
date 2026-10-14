@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Sunlight Beam: Vampire Light Hunter</title>
-    <!-- Tailwind CSS for UI overlay -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- PLATFORM SCRIPTS: portal builds insert their SDK here (see qsplay/build.sh) -->
     <style>
         body {
             margin: 0;
@@ -21,15 +20,18 @@
         :root {
             --side-panel-width: 208px;
             --layout-gap: 16px;
+            /* Narrow windows shrink the columns (set from JS, see fitSidePanels) */
+            --side-panel-zoom: 1;
             /* Arena side: fits between the two columns and within the window height */
             --arena-size: min(
-                calc(100vw - 2 * var(--side-panel-width) - 4 * var(--layout-gap)),
+                calc(100vw - 2 * var(--side-panel-width) * var(--side-panel-zoom) - 4 * var(--layout-gap)),
                 calc(100vh - 2 * var(--layout-gap))
             );
         }
         .side-panel {
             width: var(--side-panel-width);
             flex-shrink: 0;
+            zoom: var(--side-panel-zoom);
         }
         /* Square play area: canvas, wave banner, notifications and menus live inside it */
         #arena {
@@ -62,6 +64,24 @@
         #shopCatalog {
             grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
             align-content: start;
+        }
+
+        /* Short desktop windows (small embeds): menus inside the arena get
+           tighter so they fit without being cut off */
+        @media (max-height: 480px) {
+            body:not(.touch) #pauseScreen,
+            body:not(.touch) #gameOverScreen { padding: 0.5rem; }
+            body:not(.touch) #pauseScreen > div,
+            body:not(.touch) #gameOverScreen > div { padding: 1rem 1.25rem; max-height: 100%; overflow-y: auto; }
+            body:not(.touch) #pauseScreen h2,
+            body:not(.touch) #gameOverScreen h2 { font-size: 1.75rem; line-height: 2rem; }
+            body:not(.touch) #pauseScreen p,
+            body:not(.touch) #gameOverScreen p { margin-bottom: 0.75rem; }
+            body:not(.touch) #gameOverScreen > div > div:first-child { display: none; } /* blood drop icon */
+            body:not(.touch) #gameOverScreen > div > div.mb-6 { margin-bottom: 0.75rem; }
+            body:not(.touch) #shopScreen { padding: 0.5rem; }
+            body:not(.touch) #shopScreen h2 { font-size: 1rem; line-height: 1.25rem; white-space: normal; }
+            body:not(.touch) #shopScreen h2 + p { display: none; }
         }
 
         /* ---------- Touch devices (phones, tablets) ----------
@@ -202,6 +222,8 @@
         ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.3); }
         ::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.5); border-radius: 3px; }
     </style>
+    <!-- Tailwind utilities used by the UI, prebuilt by build-css.sh (no CDN) -->
+    <link rel="stylesheet" href="tailwind.css">
 </head>
 <body class="flex h-screen justify-center items-center" style="gap: var(--layout-gap);">
 
@@ -440,6 +462,64 @@
 
     <script>
         // ---------------------------------------------------------------
+        // Platform layer: the only place that knows where the game runs.
+        // On our own site it uses the browser directly (localStorage, the
+        // Fullscreen API). A portal build overrides these methods with the
+        // portal SDK, so the game code below never changes per platform.
+        // ---------------------------------------------------------------
+        const platform = {
+            // Is the player actually playing right now (not in a menu, a
+            // banner, the shop or the death screen)? Portals want to know.
+            gameplayActive: false,
+            setGameplayActive(active) {
+                if (active === this.gameplayActive) return; // never report twice
+                this.gameplayActive = active;
+                this.onGameplayChange(active);
+            },
+            onGameplayChange(active) {},
+
+            loadSetting(key, fallback) {
+                try {
+                    const v = localStorage.getItem(key);
+                    return v === null ? fallback : v === '1';
+                } catch (e) {
+                    return fallback;
+                }
+            },
+            saveSetting(key, value) {
+                try { localStorage.setItem(key, value ? '1' : '0'); } catch (e) {}
+            },
+
+            // Fullscreen (with the webkit-prefixed API for Safari)
+            fullscreenSupported: !!(document.fullscreenEnabled || document.webkitFullscreenEnabled),
+            isFullscreen() {
+                return !!(document.fullscreenElement || document.webkitFullscreenElement);
+            },
+            toggleFullscreen() {
+                const root = document.documentElement;
+                if (this.isFullscreen()) {
+                    (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+                } else {
+                    (root.requestFullscreen || root.webkitRequestFullscreen).call(root);
+                }
+            },
+            onFullscreenChange(callback) {
+                document.addEventListener('fullscreenchange', callback);
+                document.addEventListener('webkitfullscreenchange', callback);
+            },
+
+            // Before the first frame: a portal loads saved settings here.
+            init() { return Promise.resolve(); },
+            // The game is ready and its first frame is on screen.
+            loadingDone() {},
+            // Current night, score etc. for the portal's problem reports.
+            setContext(context) {}
+        };
+        // A portal build loads its adapter before this script; it replaces
+        // the methods above with the portal SDK.
+        if (window.portalPlatform) Object.assign(platform, window.portalPlatform);
+
+        // ---------------------------------------------------------------
         // Audio: every sound and the music are synthesized with the Web
         // Audio API, so there are no audio files to load or license.
         // Browsers only allow sound after a user gesture, so the engine
@@ -478,19 +558,28 @@
                 this.step = 0;
                 this.nextStepTime = 0;
                 this.schedulerId = null;
+                this.focusMuted = false;
             }
 
             loadSetting(key, fallback) {
-                try {
-                    const v = localStorage.getItem(key);
-                    return v === null ? fallback : v === '1';
-                } catch (e) {
-                    return fallback;
-                }
+                return platform.loadSetting(key, fallback);
             }
 
             saveSetting(key, value) {
-                try { localStorage.setItem(key, value ? '1' : '0'); } catch (e) {}
+                platform.saveSetting(key, value);
+            }
+
+            // Silence everything while the tab is hidden or the window has lost
+            // focus; sound comes back as soon as the player returns.
+            setFocusMuted(muted) {
+                this.focusMuted = muted;
+                if (!this.ctx) return;
+                // Both: some browsers keep a suspended context audible for a moment
+                const t = this.ctx.currentTime;
+                this.master.gain.cancelScheduledValues(t);
+                this.master.gain.setValueAtTime(muted ? 0 : AUDIO_SETTINGS.masterVolume, t);
+                if (muted) this.ctx.suspend();
+                else if (this.ctx.state === 'suspended') this.ctx.resume();
             }
 
             // Called on the first user gesture
@@ -532,6 +621,7 @@
                     const data = this.noise.getChannelData(0);
                     for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
                 }
+                if (this.focusMuted) this.setFocusMuted(false); // a key press or a tap means the player is back
                 if (this.ctx.state === 'suspended') this.ctx.resume();
                 if (this.musicEnabled && gameState !== 'GAMEOVER' && gameState !== 'DYING') this.startMusic();
             }
@@ -1340,11 +1430,37 @@
         // arena holds more space. Desktop stays 1:1.
         const TOUCH_WORLD_SCALE = 1.3;
 
+        // Narrow desktop windows (small embeds, split screen): shrink both side
+        // columns just enough for the arena to use the full window height.
+        // Wide windows are untouched.
+        const SIDE_PANEL_WIDTH = 208;    // px, same as --side-panel-width
+        const MIN_SIDE_PANEL_ZOOM = 0.6; // never smaller than 60%
+        const LAYOUT_GAP = 16, COMPACT_LAYOUT_GAP = 10;
+        function fitSidePanels() {
+            if (IS_TOUCH) return; // phones have their own layout without columns
+            const zoomFor = gap => {
+                const arena = window.innerHeight - 2 * gap;
+                const room = (window.innerWidth - 4 * gap - arena) / 2;
+                return Math.min(1, Math.max(MIN_SIDE_PANEL_ZOOM, room / SIDE_PANEL_WIDTH));
+            };
+            let gap = LAYOUT_GAP;
+            let zoom = zoomFor(gap);
+            if (zoom < 1) {
+                gap = COMPACT_LAYOUT_GAP;
+                zoom = zoomFor(gap);
+            }
+            const root = document.documentElement.style;
+            root.setProperty('--layout-gap', `${gap}px`);
+            root.setProperty('--side-panel-zoom', zoom.toFixed(3));
+        }
+
         function resizeCanvas() {
+            fitSidePanels();
             const arena = document.getElementById('arena');
             const scale = IS_TOUCH ? TOUCH_WORLD_SCALE : 1;
-            canvas.width = Math.round(arena.clientWidth * scale);
-            canvas.height = Math.round(arena.clientHeight * scale);
+            // Never 0: drawing from a 0-size canvas throws and would stop the game loop
+            canvas.width = Math.max(1, Math.round(arena.clientWidth * scale));
+            canvas.height = Math.max(1, Math.round(arena.clientHeight * scale));
             // Keep the hero inside after a rotation / resize
             // (the first call runs before `player` exists, hence the try)
             try {
@@ -1408,11 +1524,30 @@
         window.addEventListener('keyup', (e) => {
             keys[e.code] = false;
         });
-        // Release all keys when the window loses focus, otherwise a key held
-        // while switching windows stays "pressed" and the player keeps moving
-        window.addEventListener('blur', () => {
+        // Leaving the game (another tab, another window, a click outside the
+        // embedding frame) pauses the night and silences the sound, so the
+        // player never comes back to a lost run. It does not resume by itself:
+        // the player continues from the pause menu when ready.
+        // Keys are released too, otherwise a key held while switching windows
+        // stays "pressed" and the player keeps moving.
+        function onGameLeft() {
             for (const code in keys) keys[code] = false;
+            releaseTouchSticks();
+            if (gameState === 'PLAYING') pauseGame();
+            audio.setFocusMuted(true);
+            syncGameplayState();
+        }
+        function onGameReturned() {
+            if (document.hidden) return;
+            audio.setFocusMuted(false);
+        }
+        window.addEventListener('blur', onGameLeft);
+        window.addEventListener('focus', onGameReturned);
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) onGameLeft();
+            else onGameReturned();
         });
+        window.addEventListener('pagehide', onGameLeft);
 
         const hudCache = {};
 
@@ -1420,6 +1555,15 @@
             if (hudCache[id] === text) return;
             hudCache[id] = text;
             document.getElementById(id).innerText = text;
+        }
+
+        // Score and cash share a narrow column: long numbers get a smaller font
+        // so "97200" and "$1848" never run into each other
+        function setStatText(id, text) {
+            if (hudCache[id] === text) return;
+            setHudText(id, text);
+            const el = document.getElementById(id);
+            el.style.fontSize = text.length >= 6 ? '0.8rem' : text.length >= 5 ? '0.95rem' : '';
         }
 
         function setHudWidth(id, percent) {
@@ -1524,7 +1668,7 @@
                 setHudWidth('hpBar', Math.max(0, (this.hp / this.maxHp) * 100));
                 setHudText('batteryValue', `${Math.ceil(this.battery)}%`);
                 setHudWidth('batteryBar', Math.max(0, (this.battery / this.batteryMax) * 100));
-                setHudText('moneyDisplay', `$${money}`);
+                setStatText('moneyDisplay', `$${money}`);
                 setHudText('equippedName', equippedFlashlight.name);
                 if (IS_TOUCH) {
                     setHudWidth('mHpBar', Math.max(0, (this.hp / this.maxHp) * 100));
@@ -1899,7 +2043,7 @@
                 this.earned = cash;
                 money += cash;
                 kills++;
-                document.getElementById('scoreDisplay').innerText = score;
+                setStatText('scoreDisplay', String(score));
                 player.updateHUD();
 
                 for (let i = 0; i < 22; i++) {
@@ -3142,6 +3286,25 @@
 
         let musicDucked = false;
 
+        // Tell the platform whether a night is being fought right now: only
+        // the fight itself counts, not banners, the shop, pause or death.
+        function syncGameplayState() {
+            const active = gameState === 'PLAYING' && wavePhase === 'fight';
+            if (active === platform.gameplayActive) return;
+            platform.setContext({
+                night: wave,
+                score,
+                kills,
+                cash: money,
+                flashlight: equippedFlashlight.name,
+                hp: Math.round(player.hp),
+                battery: Math.round(player.battery),
+                state: gameState === 'PLAYING' ? wavePhase : gameState.toLowerCase(),
+                touch: IS_TOUCH
+            });
+            platform.setGameplayActive(active);
+        }
+
         function gameLoop(timestamp) {
             const shouldDuck = gameState === 'PAUSED' || gameState === 'SHOP';
             if (shouldDuck !== musicDucked) {
@@ -3167,6 +3330,7 @@
                 drawGame();
             }
 
+            syncGameplayState();
             requestAnimationFrame(gameLoop);
         }
 
@@ -3181,7 +3345,7 @@
             FLASHLIGHT_CATALOG.forEach((f, i) => f.unlocked = i === 0);
             equippedFlashlight = FLASHLIGHT_CATALOG[0];
 
-            document.getElementById('scoreDisplay').innerText = score;
+            setStatText('scoreDisplay', String(score));
 
             player = new Player(canvas.width / 2, canvas.height / 2);
             player.updateHUD();
@@ -3265,6 +3429,19 @@
             stick.el.firstElementChild.style.transform = `translate(${dx * k}px, ${dy * k}px)`;
         }
 
+        // The aim stick lets go but the beam keeps pointing where it was aimed
+        function releaseStick(stick) {
+            stick.id = null;
+            if (stick === touch.move) touch.move.x = touch.move.y = 0;
+            stick.el.style.display = 'none';
+            stick.ghost.style.visibility = '';
+        }
+
+        function releaseTouchSticks() {
+            if (touch.move.id !== null) releaseStick(touch.move);
+            if (touch.aim.id !== null) releaseStick(touch.aim);
+        }
+
         if (IS_TOUCH) {
             const laserBtn = document.getElementById('mLaserBtn');
             document.addEventListener('touchstart', (e) => {
@@ -3316,16 +3493,8 @@
 
             const endTouch = (e) => {
                 for (const t of e.changedTouches) {
-                    if (t.identifier === touch.move.id) {
-                        touch.move.id = null;
-                        touch.move.x = touch.move.y = 0;
-                        touch.move.el.style.display = 'none';
-                        touch.move.ghost.style.visibility = '';
-                    } else if (t.identifier === touch.aim.id) {
-                        touch.aim.id = null; // the beam keeps pointing where it was aimed
-                        touch.aim.el.style.display = 'none';
-                        touch.aim.ghost.style.visibility = '';
-                    }
+                    if (t.identifier === touch.move.id) releaseStick(touch.move);
+                    else if (t.identifier === touch.aim.id) releaseStick(touch.aim);
                 }
             };
             document.addEventListener('touchend', endTouch);
@@ -3366,34 +3535,24 @@
         document.getElementById('pauseSfxBtn').onclick = () => toggleSfx();
         updateAudioButtons();
 
-        // Fullscreen (with the webkit-prefixed API for Safari)
+        // Fullscreen goes through the platform layer (browser API or portal SDK)
         const fullscreenBtn = document.getElementById('fullscreenBtn');
-        function isFullscreen() {
-            return document.fullscreenElement || document.webkitFullscreenElement;
-        }
         function toggleFullscreen() {
-            const root = document.documentElement;
-            if (isFullscreen()) {
-                (document.exitFullscreen || document.webkitExitFullscreen).call(document);
-            } else {
-                (root.requestFullscreen || root.webkitRequestFullscreen).call(root);
-            }
+            platform.toggleFullscreen();
         }
-        const fullscreenSupported = document.fullscreenEnabled || document.webkitFullscreenEnabled;
         const mFullscreenBtn = document.getElementById('mFullscreenBtn');
-        if (!fullscreenSupported) mFullscreenBtn.style.setProperty('display', 'none', 'important');
+        if (!platform.fullscreenSupported) mFullscreenBtn.style.setProperty('display', 'none', 'important');
         mFullscreenBtn.addEventListener('click', () => toggleFullscreen());
         fullscreenBtn.onclick = () => {
             toggleFullscreen();
             fullscreenBtn.blur(); // keep Space/Enter from re-triggering it during play
         };
         function updateFullscreenButton() {
-            fullscreenBtn.innerHTML = (isFullscreen() ? '✕ Exit Fullscreen' : '⛶ Fullscreen') +
+            fullscreenBtn.innerHTML = (platform.isFullscreen() ? '✕ Exit Fullscreen' : '⛶ Fullscreen') +
                 ' <span class="text-[10px] text-gray-400 normal-case">(Shift+F)</span>';
             resizeCanvas();
         }
-        document.addEventListener('fullscreenchange', updateFullscreenButton);
-        document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
+        platform.onFullscreenChange(updateFullscreenButton);
         document.getElementById('restartButton').onclick = startGame;
         document.getElementById('resumeButton').onclick = resumeGame;
         document.getElementById('pauseShopButton').onclick = () => {
@@ -3405,9 +3564,31 @@
             startGame();
         };
 
-        // Start the game immediately and the animation loop
-        startGame();
-        requestAnimationFrame(gameLoop);
+        // Saved music / sound settings may arrive later than the page (a portal
+        // keeps them in its own storage), so read them again once it is ready.
+        function applySavedAudioSettings() {
+            const music = platform.loadSetting('shadowLight.music', true);
+            const sfx = platform.loadSetting('shadowLight.sfx', true);
+            if (music !== audio.musicEnabled) audio.setMusicEnabled(music);
+            if (sfx !== audio.sfxEnabled) audio.setSfxEnabled(sfx);
+            updateAudioButtons();
+        }
+
+        // Start the game immediately and the animation loop. A platform that
+        // takes too long to answer never holds the game back.
+        const PLATFORM_INIT_TIMEOUT = 3000; // ms
+        Promise.race([
+            platform.init().catch(() => {}),
+            new Promise(resolve => setTimeout(resolve, PLATFORM_INIT_TIMEOUT))
+        ]).then(() => {
+            applySavedAudioSettings();
+            startGame();
+            // Opened in a background tab, or embedded in a page that has not
+            // given the game focus yet: wait on the pause screen
+            if (document.hidden || (window.self !== window.top && !document.hasFocus())) onGameLeft();
+            requestAnimationFrame(gameLoop);
+            platform.loadingDone();
+        });
     </script>
 </body>
 </html>
