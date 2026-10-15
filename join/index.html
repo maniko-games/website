@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>Join a family | Remember That Thing</title>
+    <style>
+        :root { --text: #1f2937; --bg: #ffffff; --accent: #2563eb; --card: #f3f4f6; }
+        @media (prefers-color-scheme: dark) { :root { --text: #e5e7eb; --bg: #111827; --accent: #60a5fa; --card: #1f2937; } }
+        body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; text-align: center; }
+        main { max-width: 420px; }
+        h1 { font-size: 1.6rem; margin: 0 0 8px; }
+        .code { font-size: 2.2rem; font-weight: 700; letter-spacing: 6px; background: var(--card); border-radius: 14px; padding: 14px 10px; margin: 20px 0; }
+        a.button { display: block; margin: 12px 0; padding: 14px 24px; border-radius: 12px; background: var(--accent); color: #fff; text-decoration: none; font-weight: 600; }
+        a.secondary { background: transparent; color: var(--accent); border: 2px solid var(--accent); }
+        p { opacity: 0.85; line-height: 1.5; }
+        [hidden] { display: none !important; }
+    </style>
+</head>
+<body>
+<main>
+    <h1 id="title">You are invited to a family</h1>
+    <p id="intro">in the Remember That Thing app, to share shopping lists.</p>
+    <div id="code" class="code" hidden></div>
+    <a id="open" class="button" href="#" hidden>Open the app</a>
+    <a id="get" class="button secondary" href="https://play.google.com/store/apps/details?id=com.manikogames.rememberthatthing">Get the app</a>
+    <p id="how">Installed already? Tap "Open the app". Otherwise install it, sign in, then open Profile → Family and enter the code.</p>
+    <p id="bad" hidden>This link has no valid invitation code.</p>
+</main>
+<script>
+    // The invitation link: https://maniko.games/join/?code=XXXXXXXX. This page only passes the code to the app
+    // (rememberthatthing:///join?code=...); nothing is stored or sent anywhere.
+    (function () {
+        var TEXTS = {
+            en: ['You are invited to a family', 'in the Remember That Thing app, to share shopping lists.', 'Open the app', 'Get the app', 'Installed already? Tap "Open the app". Otherwise install it, sign in, then open Profile → Family and enter the code.', 'This link has no valid invitation code.'],
+            ru: ['Вас приглашают в семью', 'в приложении Remember That Thing, чтобы вместе вести списки покупок.', 'Открыть приложение', 'Установить приложение', 'Уже установлено? Нажмите «Открыть приложение». Иначе установите его, войдите, затем откройте «Профиль → Семья» и введите код.', 'В этой ссылке нет действующего кода приглашения.'],
+            uk: ['Вас запрошують до родини', 'у застосунку Remember That Thing, щоб разом вести списки покупок.', 'Відкрити застосунок', 'Встановити застосунок', 'Уже встановлено? Натисніть «Відкрити застосунок». Інакше встановіть його, увійдіть, потім відкрийте «Профіль → Родина» і введіть код.', 'У цьому посиланні немає чинного коду запрошення.'],
+            ro: ['Ești invitat într-o familie', 'în aplicația Remember That Thing, ca să țineți împreună listele de cumpărături.', 'Deschide aplicația', 'Instalează aplicația', 'Ai deja aplicația? Apasă „Deschide aplicația”. Altfel instaleaz-o, conectează-te, apoi deschide Profil → Familie și introdu codul.', 'Acest link nu are un cod de invitație valid.']
+        };
+        var lang = (navigator.language || 'en').slice(0, 2).toLowerCase();
+        var t = TEXTS[lang] || TEXTS.en;
+        document.documentElement.lang = TEXTS[lang] ? lang : 'en';
+        document.getElementById('title').textContent = t[0];
+        document.getElementById('intro').textContent = t[1];
+        document.getElementById('open').textContent = t[2];
+        document.getElementById('get').textContent = t[3];
+        document.getElementById('how').textContent = t[4];
+        document.getElementById('bad').textContent = t[5];
+
+        var code = (new URLSearchParams(window.location.search).get('code') || '').trim().toUpperCase();
+        if (!/^[A-Z0-9]{8}$/.test(code)) {
+            ['intro', 'how', 'get'].forEach(function (id) { document.getElementById(id).hidden = true; });
+            document.getElementById('bad').hidden = false;
+            return;
+        }
+        var box = document.getElementById('code');
+        box.textContent = code;
+        box.hidden = false;
+        var link = 'rememberthatthing:///join?code=' + encodeURIComponent(code);
+        var open = document.getElementById('open');
+        open.href = link;
+        open.hidden = false;
+        // On a phone that has the app this opens it at once; elsewhere the buttons stay.
+        setTimeout(function () { window.location.href = link; }, 300);
+    })();
+</script>
+</body>
+</html>
