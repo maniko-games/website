@@ -35,7 +35,7 @@
 
 <main>
     <h1>Privacy Policy</h1>
-    <p class="meta"><strong>Remember That Thing</strong> &middot; Effective date: October 14, 2026</p>
+    <p class="meta"><strong>Remember That Thing</strong> &middot; Effective date: October 14, 2026 &middot; Updated: October 17, 2026</p>
 
     <p>Your privacy is important to us. This page explains what information the <strong>Remember That Thing</strong> app (the “App”) collects, how we use it, who we share it with, and what choices you have. By using the App, you agree to the collection and use of information in accordance with this policy.</p>
     <p>The App is published by <strong>Maniko Games</strong>, Ukraine (“we”, “us”). If you have any questions, <a href="#contact">contact us</a>.</p>
@@ -95,9 +95,9 @@
         <tr><td>Supabase</td><td>Database, sign-in and photo storage</td><td>Account, products, ratings, comments, photos</td></tr>
         <tr><td>Google</td><td>Sign-in with a Google account (optional)</td><td>E-mail address and basic profile you allow Google to share</td></tr>
         <tr><td>Resend</td><td>Sending e-mails with sign-in codes</td><td>E-mail address</td></tr>
-        <tr><td>AI model provider</td><td>Recognizing a product from packaging photos (optional feature, called only from our server)</td><td>The photos you submit for recognition</td></tr>
+        <tr><td>Anthropic</td><td>Recognizing a product from packaging photos (AI model; called only from our server)</td><td>The packaging photos you submit for recognition (front and back), the language of your product categories</td></tr>
     </table>
-    <p>If the product recognition feature is enabled, the photos you submit for it are sent to a third-party AI provider, which returns a draft description of the product. We will name the provider on this page before the feature is released. Our AI keys are kept on our servers and never in the App.</p>
+    <p>When you add a product from photos, the App sends the packaging photos (reduced in size) through our server to Anthropic, which reads the text on the packaging and returns a draft description (brand, name, size, category). You can check and change the draft before saving. We do not send your name, e-mail or account identifier to Anthropic, and we do not use your photos to train models; under Anthropic&rsquo;s commercial terms, data sent through its API is not used to train its models. The number of recognitions per person is limited each day. Anthropic may keep the data it receives for a limited period under its own terms and privacy policy. Our AI key is kept on our servers and never in the App.</p>
 
     <h2 id="permissions">5. Device permissions</h2>
     <ul>
