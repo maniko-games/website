@@ -1,0 +1,14 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.manikogames.rememberthatthing",
+      "sha256_cert_fingerprints": [
+        "20:66:8A:A8:84:FF:DC:2F:FF:6C:97:A1:43:A0:D4:03:4C:0A:59:8F:BC:61:3D:2F:80:DA:A1:C0:B3:A3:2E:9A",
+        "28:2B:CF:29:39:F7:A0:BE:BB:CB:2F:61:AC:A6:91:1C:67:3E:8A:32:3B:A8:3C:75:DE:02:97:2D:9A:5E:3B:68",
+        "15:AC:08:13:4E:43:D0:6B:C0:7D:32:43:1F:E8:8F:44:23:DA:A1:A4:C8:70:E9:CE:2A:65:2C:F4:7B:56:AD:29"
+      ]
+    }
+  }
+]
