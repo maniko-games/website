@@ -4,100 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex">
-    <title>Shared product | Remember That Thing</title>
+    <title>Remember That Thing</title>
     <style>
-        :root { --ink: #17181C; --soft: #5B5E66; --bg: #ffffff; --card: #F4F4F1; --accent: #FFC83D; }
-        * { box-sizing: border-box; }
-        body { margin: 0; min-height: 100vh; display: flex; justify-content: center; padding: 20px; background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-        main { width: 100%; max-width: 420px; }
-        .photo { height: 280px; border-radius: 20px; background: var(--card); display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 18px; }
-        .photo img { max-width: 100%; max-height: 100%; object-fit: contain; }
-        .from { font-size: 12px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--soft); margin: 0 0 6px; }
-        h1 { font-size: 1.7rem; line-height: 1.15; margin: 0 0 6px; letter-spacing: -0.4px; }
-        .meta { color: var(--soft); margin: 0 0 14px; }
-        .verdict { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-radius: 16px; font-weight: 800; margin-bottom: 12px; }
-        .verdict.buy { background: #E3F6E8; color: #166534; }
-        .verdict.meh { background: #FFF3D6; color: #8A5A00; }
-        .verdict.skip { background: #FDECEA; color: #B42318; }
-        .stars { letter-spacing: 2px; color: #F5A623; font-size: 1.2rem; }
-        .note { background: var(--card); border-radius: 16px; padding: 14px 16px; line-height: 1.5; margin: 0 0 18px; white-space: pre-wrap; }
-        a.button { display: block; text-align: center; margin: 10px 0; padding: 16px 24px; border-radius: 16px; background: var(--ink); color: #fff; text-decoration: none; font-weight: 700; }
-        a.secondary { background: var(--accent); color: var(--ink); }
-        p.hint { color: var(--soft); font-size: 14px; line-height: 1.5; text-align: center; }
-        .status { text-align: center; padding: 60px 0; color: var(--soft); }
-        [hidden] { display: none !important; }
+        body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; background: #fff; color: #17181C; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; text-align: center; }
+        a { color: #17181C; font-weight: 700; }
     </style>
 </head>
 <body>
-<main>
-    <p id="status" class="status">…</p>
-    <div id="card" hidden>
-        <div class="photo"><img id="photo" alt="" hidden></div>
-        <p id="from" class="from"></p>
-        <h1 id="name"></h1>
-        <p id="meta" class="meta"></p>
-        <div id="verdict" class="verdict" hidden><span id="verdictText"></span><span id="stars" class="stars"></span></div>
-        <p id="note" class="note" hidden></p>
-        <a id="open" class="button" href="#"></a>
-        <a id="get" class="button secondary" href="https://play.google.com/store/apps/details?id=com.manikogames.rememberthatthing"></a>
-        <p id="how" class="hint"></p>
-    </div>
-</main>
+<p><a id="store" href="https://play.google.com/store/apps/details?id=com.manikogames.rememberthatthing">Remember That Thing</a></p>
 <script>
-    // The product link: https://maniko.games/p/?t=<24 hex digits>. The page reads the shared card from the app's server
-    // (function "shared-product") and offers to open it in the app (rememberthatthing:///shared?t=...) or to install the app.
-    (function () {
-        var API = 'https://ejqnanfgjkrxrwxhbucb.supabase.co/functions/v1/shared-product';
-        var TEXTS = {
-            en: { from: 'Shared with you', open: 'Open in the app', get: 'Get the app', how: 'Installed already? Tap "Open in the app". Otherwise install it first, then open this link again.', gone: 'This link does not work any more.', error: 'Could not load the product. Try again later.', buy: 'Buy again', meh: 'So-so', skip: 'Skip' },
-            ru: { from: 'Вам поделились товаром', open: 'Открыть в приложении', get: 'Установить приложение', how: 'Уже установлено? Нажмите «Открыть в приложении». Иначе сначала установите его, затем откройте эту ссылку снова.', gone: 'Эта ссылка больше не работает.', error: 'Не удалось загрузить товар. Попробуйте позже.', buy: 'Покупать снова', meh: 'Так себе', skip: 'Пропустить' },
-            uk: { from: 'З вами поділилися товаром', open: 'Відкрити в застосунку', get: 'Встановити застосунок', how: 'Уже встановлено? Натисніть «Відкрити в застосунку». Інакше спочатку встановіть його, потім відкрийте це посилання знову.', gone: 'Це посилання більше не працює.', error: 'Не вдалося завантажити товар. Спробуйте пізніше.', buy: 'Купувати знову', meh: 'Так собі', skip: 'Пропустити' },
-            ro: { from: 'Un produs partajat cu tine', open: 'Deschide în aplicație', get: 'Instalează aplicația', how: 'Ai deja aplicația? Apasă „Deschide în aplicație”. Altfel instaleaz-o mai întâi, apoi deschide din nou acest link.', gone: 'Acest link nu mai funcționează.', error: 'Nu am putut încărca produsul. Încearcă mai târziu.', buy: 'Cumpără din nou', meh: 'Așa și așa', skip: 'Sari peste' }
-        };
-        var lang = (navigator.language || 'en').slice(0, 2).toLowerCase();
-        var t = TEXTS[lang] || TEXTS.en;
-        document.documentElement.lang = TEXTS[lang] ? lang : 'en';
-        var $ = function (id) { return document.getElementById(id); };
-        var token = (new URLSearchParams(window.location.search).get('t') || '').trim().toLowerCase();
-        if (!/^[0-9a-f]{24}$/.test(token)) { $('status').textContent = t.gone; return; }
-
-        fetch(API + '?t=' + token).then(function (response) {
-            if (response.status === 404 || response.status === 400) throw new Error('gone');
-            if (!response.ok) throw new Error('error');
-            return response.json();
-        }).then(function (p) {
-            var cap = function (s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; };
-            $('from').textContent = t.from;
-            $('name').textContent = p.name;
-            $('meta').textContent = [p.brand, cap(p.categoryText)].filter(Boolean).join(' · ');
-            document.title = p.name + ' | Remember That Thing';
-            if (p.hasFront || p.hasBack) {
-                var img = $('photo');
-                img.src = API + '?t=' + token + '&photo=' + (p.hasFront ? 'front' : 'back');
-                img.hidden = false;
-            }
-            var rating = Math.round(p.rating || 0);
-            if (rating >= 1) {
-                var kind = rating >= 4 ? 'buy' : rating === 3 ? 'meh' : 'skip';
-                $('verdict').className = 'verdict ' + kind;
-                $('verdictText').textContent = t[kind];
-                $('stars').textContent = '★'.repeat(rating) + '☆'.repeat(5 - rating);
-                $('verdict').hidden = false;
-            }
-            if ((p.comment || '').trim()) { $('note').textContent = p.comment.trim(); $('note').hidden = false; }
-            var link = 'rememberthatthing:///shared?t=' + token;
-            $('open').textContent = t.open;
-            $('open').href = link;
-            $('get').textContent = t.get;
-            $('how').textContent = t.how;
-            $('status').hidden = true;
-            $('card').hidden = false;
-            // On a phone that has the app this opens it at once; elsewhere the buttons stay.
-            setTimeout(function () { window.location.href = link; }, 400);
-        }).catch(function (e) {
-            $('status').textContent = e.message === 'gone' ? t.gone : t.error;
-        });
-    })();
+    // A product link: https://maniko.games/p/?t=<token>. On an Android phone that has the app, the app opens the link
+    // itself (Android App Link) and this page is never shown. Here we only land when the app is not installed
+    // (or on a computer): straight to the app page in Google Play.
+    window.location.replace(document.getElementById('store').href);
 </script>
 </body>
 </html>
