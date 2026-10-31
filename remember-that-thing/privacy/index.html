@@ -66,9 +66,10 @@
         <li><strong>Categories you type.</strong> Category names you enter may be stored in a shared category list so they can be suggested to other users. A new category is reviewed by us before other users can see it; until then it is visible only to you.</li>
         <li><strong>Family and list data.</strong> If you create or join a family or a shared shopping list, we store who belongs to it, the invite codes, and the list contents.</li>
         <li><strong>Settings.</strong> Your language choices are stored on your device.</li>
+        <li><strong>Usage statistics (only if you agree).</strong> At the first start the App asks whether it may send anonymous usage statistics, and you can change your answer at any time in Settings. If you agree, we receive events such as which screens you open, which buttons you tap, and counts and categories of actions (for example, that a product was saved with a rating of 5, or how long a photo recognition took), together with your app version, device model, operating system, language and approximate region. We never send the names, brands, notes or photos of your products, search words, your e-mail address or your name. The statistics are tied to a random identifier of the App installation, not to your account, and are not used for advertising.</li>
         <li><strong>Technical data.</strong> Our service providers process technical data needed to run the service, such as IP address, device and app version, and error logs.</li>
     </ul>
-    <p>We do not sell your personal information. The App does not contain third-party advertising and does not use advertising identifiers.</p>
+    <p>We do not sell your personal information. The App does not contain third-party advertising and does not use advertising identifiers. Usage statistics are sent only after you agree to them.</p>
 
     <h2 id="use">2. How we use information</h2>
     <ul>
@@ -95,6 +96,7 @@
         <tr><td>Supabase</td><td>Database, sign-in and photo storage</td><td>Account, products, ratings, comments, photos</td></tr>
         <tr><td>Google</td><td>Sign-in with a Google account (optional)</td><td>E-mail address and basic profile you allow Google to share</td></tr>
         <tr><td>Resend</td><td>Sending e-mails with sign-in codes</td><td>E-mail address</td></tr>
+        <tr><td>Google (Firebase Analytics)</td><td>Anonymous usage statistics, only if you agree</td><td>App events and technical data described in section 1, a random installation identifier (no advertising identifier)</td></tr>
         <tr><td>Anthropic</td><td>Recognizing a product from packaging photos (AI model; called only from our server)</td><td>The packaging photos you submit for recognition (front and back), the language of your product categories</td></tr>
     </table>
     <p>When you add a product from photos, the App sends the packaging photos (reduced in size) through our server to Anthropic, which reads the text on the packaging and returns a draft description (brand, name, size, category). You can check and change the draft before saving. We do not send your name, e-mail or account identifier to Anthropic, and we do not use your photos to train models; under Anthropic&rsquo;s commercial terms, data sent through its API is not used to train its models. The number of recognitions per person is limited each day. Anthropic may keep the data it receives for a limited period under its own terms and privacy policy. Our AI key is kept on our servers and never in the App.</p>
